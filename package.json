@@ -1,0 +1,38 @@
+{
+  "name": "assessment-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Managed AI-assisted coding assessment platform for full-session telemetry capture and scoring.",
+  "workspaces": [
+    "apps/*",
+    "extensions/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @assessment-platform/contracts && npm run build --workspaces --if-present",
+    "dev:analytics": "node scripts/run-local-service.mjs analytics",
+    "dev:control-plane": "node scripts/run-local-service.mjs control-plane",
+    "dev:ingestion": "node scripts/run-local-service.mjs ingestion",
+    "dev:reviewer": "node scripts/run-local-service.mjs reviewer",
+    "dev:admin": "node scripts/run-local-service.mjs admin",
+    "dev:desktop-controller": "node scripts/run-local-service.mjs desktop-controller",
+    "dev:stack": "node scripts/dev-stack.mjs",
+    "dev:stack:full": "node scripts/dev-stack.mjs --manifest=manifest-python-cli-live-full",
+    "dev:stack:smoke": "node scripts/dev-stack.mjs --smoke --no-desktop-controller",
+    "dev:stack:start": "node scripts/dev-stack-manager.mjs start",
+    "dev:stack:start:full": "node scripts/dev-stack-manager.mjs start --manifest=manifest-python-cli-live-full",
+    "dev:stack:status": "node scripts/dev-stack-manager.mjs status",
+    "dev:stack:stop": "node scripts/dev-stack-manager.mjs stop",
+    "demo:local": "node scripts/demo-local.mjs",
+    "test": "npm run test:analytics",
+    "test:analytics": "python -m unittest discover -s services/analytics-py/tests -p test_*.py",
+    "test:integration": "npm run build --workspace @assessment-platform/contracts && tsx --test tests/integration/demo-runner.test.ts tests/integration/live-session.test.ts",
+    "test:web": "npm run build --workspace @assessment-platform/contracts && tsx --test tests/web/view-models.test.ts tests/web/desktop-controller.test.ts tests/web/admin-view-models.test.ts tests/web/edge-managed.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

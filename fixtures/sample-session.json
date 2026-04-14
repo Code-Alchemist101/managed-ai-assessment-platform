@@ -1,0 +1,617 @@
+{
+  "session_context": {
+    "session_id": "session-demo-001",
+    "problem_statement": "Build a small CLI todo manager with add, list, and complete commands using Python.",
+    "allowed_ai_providers": ["openai", "anthropic", "google"],
+    "allowed_sites": [
+      "chat.openai.com",
+      "claude.ai",
+      "gemini.google.com",
+      "stackoverflow.com",
+      "developer.mozilla.org",
+      "docs.python.org",
+      "www.google.com"
+    ],
+    "required_streams": ["desktop", "ide", "browser"]
+  },
+  "events": [
+    {
+      "event_id": "evt-001",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:00:00Z",
+      "source": "desktop",
+      "event_type": "session.started",
+      "sequence_no": 1,
+      "artifact_ref": "session",
+      "payload": {
+        "candidate_id": "cand-001",
+        "assessment_id": "asmt-001"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-001",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-002",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:00:05Z",
+      "source": "desktop",
+      "event_type": "os.focus.changed",
+      "sequence_no": 2,
+      "artifact_ref": "window:vscode",
+      "payload": {
+        "app_category": "editor",
+        "app_name": "Code.exe"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-002",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-003",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:00:20Z",
+      "source": "ide",
+      "event_type": "ide.document.changed",
+      "sequence_no": 1,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "inserted_text": "import argparse\n",
+        "inserted_chars": 16,
+        "deleted_chars": 0,
+        "change_source": "typing"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-003",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-004",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:00:28Z",
+      "source": "ide",
+      "event_type": "ide.document.changed",
+      "sequence_no": 2,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "inserted_text": "def main():\n    pass\n",
+        "inserted_chars": 21,
+        "deleted_chars": 0,
+        "change_source": "typing"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-004",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-005",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:00:35Z",
+      "source": "ide",
+      "event_type": "ide.clipboard.copy",
+      "sequence_no": 3,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "selected_text": "def main():\n    pass\n",
+        "selected_chars": 21
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-005",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-006",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:00Z",
+      "source": "browser",
+      "event_type": "browser.navigation",
+      "sequence_no": 1,
+      "artifact_ref": "tab:1",
+      "payload": {
+        "url": "https://chat.openai.com/",
+        "domain": "chat.openai.com",
+        "app_category": "browser"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-006",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-007",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:05Z",
+      "source": "desktop",
+      "event_type": "os.focus.changed",
+      "sequence_no": 4,
+      "artifact_ref": "window:edge",
+      "payload": {
+        "app_category": "browser",
+        "app_name": "msedge.exe"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-007",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-008",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:08Z",
+      "source": "browser",
+      "event_type": "browser.ai.prompt",
+      "sequence_no": 2,
+      "artifact_ref": "provider:openai",
+      "payload": {
+        "provider": "openai",
+        "prompt_id": "prompt-1",
+        "prompt_text": "Explain how to structure a Python CLI todo manager and show a small starter example.",
+        "prompt_length": 84
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-008",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-009",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:20Z",
+      "source": "browser",
+      "event_type": "browser.ai.response",
+      "sequence_no": 3,
+      "artifact_ref": "provider:openai",
+      "payload": {
+        "provider": "openai",
+        "prompt_id": "prompt-1",
+        "response_id": "response-1",
+        "response_text": "Use argparse with subcommands and keep todos in a list for now."
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-009",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-010",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:35Z",
+      "source": "ide",
+      "event_type": "ide.ai.accepted",
+      "sequence_no": 4,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "provider": "openai",
+        "response_id": "response-1",
+        "accepted_text": "parser = argparse.ArgumentParser()\nsubparsers = parser.add_subparsers(dest='command')\n",
+        "final_text": "parser = argparse.ArgumentParser(description='Todo CLI')\nsubparsers = parser.add_subparsers(dest='command')\n",
+        "inserted_chars": 110
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-010",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-011",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:36Z",
+      "source": "ide",
+      "event_type": "ide.clipboard.paste",
+      "sequence_no": 5,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "pasted_text": "parser = argparse.ArgumentParser(description='Todo CLI')\nsubparsers = parser.add_subparsers(dest='command')\n",
+        "pasted_chars": 110
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-011",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-012",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:01:38Z",
+      "source": "ide",
+      "event_type": "ide.document.changed",
+      "sequence_no": 6,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "inserted_text": "parser = argparse.ArgumentParser(description='Todo CLI')\nsubparsers = parser.add_subparsers(dest='command')\n",
+        "inserted_chars": 110,
+        "deleted_chars": 0,
+        "change_source": "paste",
+        "response_id": "response-1"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-012",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-013",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:02:00Z",
+      "source": "desktop",
+      "event_type": "os.focus.changed",
+      "sequence_no": 5,
+      "artifact_ref": "window:vscode",
+      "payload": {
+        "app_category": "editor",
+        "app_name": "Code.exe"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-013",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-014",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:02:10Z",
+      "source": "ide",
+      "event_type": "ide.document.changed",
+      "sequence_no": 7,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "inserted_text": "# todo storage\nTODOS = []\n",
+        "inserted_chars": 25,
+        "deleted_chars": 0,
+        "change_source": "typing"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-014",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-015",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:02:40Z",
+      "source": "ide",
+      "event_type": "ide.snapshot",
+      "sequence_no": 8,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "language_id": "python",
+        "revision": 1,
+        "content": "import argparse\n\n# todo storage\nTODOS = []\n\ndef main():\n    parser = argparse.ArgumentParser(description='Todo CLI')\n    subparsers = parser.add_subparsers(dest='command')\n    parser.parse_args()\n"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-015",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-016",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:03:00Z",
+      "source": "ide",
+      "event_type": "ide.diagnostics.changed",
+      "sequence_no": 9,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "errors": 2,
+        "warnings": 0
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-016",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-017",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:03:05Z",
+      "source": "ide",
+      "event_type": "ide.task.started",
+      "sequence_no": 10,
+      "artifact_ref": "task:run",
+      "payload": {
+        "task_type": "run",
+        "command": "python main.py list"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-017",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-018",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:03:25Z",
+      "source": "browser",
+      "event_type": "browser.search",
+      "sequence_no": 4,
+      "artifact_ref": "search:python-argparse",
+      "payload": {
+        "query": "python argparse subcommands example",
+        "domain": "www.google.com",
+        "app_category": "browser"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-018",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-019",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:03:40Z",
+      "source": "browser",
+      "event_type": "browser.ai.prompt",
+      "sequence_no": 5,
+      "artifact_ref": "provider:openai",
+      "payload": {
+        "provider": "openai",
+        "prompt_id": "prompt-2",
+        "prompt_text": "Debug this parser error and suggest how to handle add and complete commands cleanly.",
+        "prompt_length": 82
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-019",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-020",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:03:55Z",
+      "source": "browser",
+      "event_type": "browser.ai.response",
+      "sequence_no": 6,
+      "artifact_ref": "provider:openai",
+      "payload": {
+        "provider": "openai",
+        "prompt_id": "prompt-2",
+        "response_id": "response-2",
+        "response_text": "Add named subparsers and create small handler functions for add and complete."
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-020",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-021",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:04:05Z",
+      "source": "ide",
+      "event_type": "ide.command.executed",
+      "sequence_no": 11,
+      "artifact_ref": "command:refactor",
+      "payload": {
+        "command_id": "editor.action.refactor"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-021",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-022",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:04:30Z",
+      "source": "desktop",
+      "event_type": "os.idle",
+      "sequence_no": 6,
+      "artifact_ref": "idle",
+      "payload": {
+        "idle_seconds": 18
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-022",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-023",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:04:48Z",
+      "source": "ide",
+      "event_type": "ide.document.changed",
+      "sequence_no": 12,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "inserted_text": "def add_item(text):\n    TODOS.append(text)\n\n\ndef complete_item(index):\n    TODOS.pop(index)\n",
+        "inserted_chars": 94,
+        "deleted_chars": 0,
+        "change_source": "typing"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-023",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-024",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:05:20Z",
+      "source": "ide",
+      "event_type": "ide.snapshot",
+      "sequence_no": 13,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "language_id": "python",
+        "revision": 2,
+        "content": "import argparse\n\n# todo storage\nTODOS = []\n\ndef add_item(text):\n    TODOS.append(text)\n\n\ndef complete_item(index):\n    TODOS.pop(index)\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='Todo CLI')\n    subparsers = parser.add_subparsers(dest='command')\n    add_parser = subparsers.add_parser('add')\n    add_parser.add_argument('text')\n    complete_parser = subparsers.add_parser('complete')\n    complete_parser.add_argument('index', type=int)\n    parser.parse_args()\n"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-024",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-025",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:05:30Z",
+      "source": "ide",
+      "event_type": "ide.diagnostics.changed",
+      "sequence_no": 14,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-025",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-026",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:05:35Z",
+      "source": "ide",
+      "event_type": "ide.task.started",
+      "sequence_no": 15,
+      "artifact_ref": "task:test",
+      "payload": {
+        "task_type": "test",
+        "command": "python -m pytest"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-026",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-027",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:06:00Z",
+      "source": "ide",
+      "event_type": "ide.document.saved",
+      "sequence_no": 16,
+      "artifact_ref": "file:main.py",
+      "payload": {
+        "version": 3
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-027",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-028",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:06:20Z",
+      "source": "desktop",
+      "event_type": "os.focus.changed",
+      "sequence_no": 7,
+      "artifact_ref": "window:edge",
+      "payload": {
+        "app_category": "browser",
+        "app_name": "msedge.exe"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-028",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-029",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:06:40Z",
+      "source": "browser",
+      "event_type": "browser.navigation",
+      "sequence_no": 7,
+      "artifact_ref": "tab:2",
+      "payload": {
+        "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+        "domain": "developer.mozilla.org",
+        "app_category": "browser"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-029",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-030",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:07:00Z",
+      "source": "desktop",
+      "event_type": "os.focus.changed",
+      "sequence_no": 8,
+      "artifact_ref": "window:vscode",
+      "payload": {
+        "app_category": "editor",
+        "app_name": "Code.exe"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-030",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-031",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:07:20Z",
+      "source": "desktop",
+      "event_type": "session.heartbeat",
+      "sequence_no": 9,
+      "artifact_ref": "session",
+      "payload": {
+        "status": "active"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-031",
+      "policy_context": {
+        "managed_session": true
+      }
+    },
+    {
+      "event_id": "evt-032",
+      "session_id": "session-demo-001",
+      "timestamp_utc": "2026-04-12T09:07:40Z",
+      "source": "desktop",
+      "event_type": "session.ended",
+      "sequence_no": 10,
+      "artifact_ref": "session",
+      "payload": {
+        "status": "submitted"
+      },
+      "client_version": "0.1.0",
+      "integrity_hash": "hash-032",
+      "policy_context": {
+        "managed_session": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../../",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@assessment-platform/contracts": ["../../packages/contracts/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

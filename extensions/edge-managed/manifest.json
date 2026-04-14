@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Assessment Platform Managed Edge",
+  "version": "0.1.0",
+  "description": "Managed browser telemetry collection for assessment sessions.",
+  "permissions": ["tabs", "webNavigation", "storage", "activeTab"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["dist/content/ai-provider.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

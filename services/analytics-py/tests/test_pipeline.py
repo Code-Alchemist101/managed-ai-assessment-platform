@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+import unittest
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
+
+from assessment_analytics.catalog import SIGNAL_NAMES
+from assessment_analytics.features import extract_feature_vector
+from assessment_analytics.integrity import evaluate_integrity
+from assessment_analytics.scoring import score_session
+
+
+FIXTURE_PATH = Path(__file__).resolve().parents[3] / "fixtures" / "sample-session.json"
+
+
+class AnalyticsPipelineTests(unittest.TestCase):
+    def setUp(self) -> None:
+        with FIXTURE_PATH.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        self.session_context = payload["session_context"]
+        self.events = payload["events"]
+
+    def test_feature_vector_contains_all_51_signals(self) -> None:
+        feature_vector = extract_feature_vector(self.events, self.session_context)
+        self.assertEqual(len(feature_vector["signals"]), 51)
+        self.assertEqual(set(feature_vector["signal_values"].keys()), set(SIGNAL_NAMES))
+        self.assertGreater(feature_vector["signal_values"]["session_duration"], 0)
+        self.assertGreaterEqual(feature_vector["signal_values"]["total_prompts_sent"], 2)
+
+    def test_integrity_evaluates_required_streams(self) -> None:
+        feature_vector = extract_feature_vector(self.events, self.session_context)
+        integrity = evaluate_integrity(self.events, feature_vector, self.session_context)
+        self.assertIn(integrity["verdict"], {"clean", "review", "invalid"})
+        self.assertEqual(integrity["missing_streams"], [])
+
+    def test_integrity_allows_managed_bootstrap_navigation(self) -> None:
+        session_context = {
+            "required_streams": ["desktop", "ide", "browser"],
+            "allowed_sites": ["developer.mozilla.org"],
+            "allowed_ai_providers": ["openai"],
+        }
+        events = [
+            {
+                "event_id": "desktop-1",
+                "session_id": "session-1",
+                "timestamp_utc": "2026-04-14T05:00:00Z",
+                "source": "desktop",
+                "event_type": "session.started",
+                "sequence_no": 1,
+                "artifact_ref": "session",
+                "payload": {"status": "active"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-1",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "browser-1",
+                "session_id": "session-1",
+                "timestamp_utc": "2026-04-14T05:00:01Z",
+                "source": "browser",
+                "event_type": "browser.navigation",
+                "sequence_no": 1,
+                "artifact_ref": "tab:1",
+                "payload": {
+                    "url": "http://127.0.0.1:4010/browser-bootstrap?sessionId=session-1",
+                    "domain": "127.0.0.1",
+                    "managed_bootstrap": True,
+                    "allowed_site": True,
+                },
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-2",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "ide-1",
+                "session_id": "session-1",
+                "timestamp_utc": "2026-04-14T05:00:02Z",
+                "source": "ide",
+                "event_type": "ide.extension.activated",
+                "sequence_no": 1,
+                "artifact_ref": "extension:assessment-platform",
+                "payload": {"mode": "injected"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-3",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "desktop-2",
+                "session_id": "session-1",
+                "timestamp_utc": "2026-04-14T05:00:03Z",
+                "source": "desktop",
+                "event_type": "session.heartbeat",
+                "sequence_no": 2,
+                "artifact_ref": "session",
+                "payload": {"status": "active"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-4",
+                "policy_context": {"managed_session": True},
+            },
+        ]
+
+        feature_vector = extract_feature_vector(events, session_context)
+        integrity = evaluate_integrity(events, feature_vector, session_context)
+
+        self.assertNotIn("unsupported_site_visited", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "clean")
+
+    def test_integrity_flags_explicitly_unsupported_browser_navigation(self) -> None:
+        session_context = {
+            "required_streams": ["desktop", "ide", "browser"],
+            "allowed_sites": ["developer.mozilla.org"],
+            "allowed_ai_providers": ["openai"],
+        }
+        events = [
+            {
+                "event_id": "desktop-1",
+                "session_id": "session-2",
+                "timestamp_utc": "2026-04-14T05:01:00Z",
+                "source": "desktop",
+                "event_type": "session.started",
+                "sequence_no": 1,
+                "artifact_ref": "session",
+                "payload": {"status": "active"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-1",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "browser-1",
+                "session_id": "session-2",
+                "timestamp_utc": "2026-04-14T05:01:01Z",
+                "source": "browser",
+                "event_type": "browser.navigation",
+                "sequence_no": 1,
+                "artifact_ref": "tab:1",
+                "payload": {
+                    "url": "https://example.com/",
+                    "domain": "example.com",
+                    "managed_bootstrap": False,
+                    "allowed_site": False,
+                },
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-2",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "ide-1",
+                "session_id": "session-2",
+                "timestamp_utc": "2026-04-14T05:01:02Z",
+                "source": "ide",
+                "event_type": "ide.extension.activated",
+                "sequence_no": 1,
+                "artifact_ref": "extension:assessment-platform",
+                "payload": {"mode": "injected"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-3",
+                "policy_context": {"managed_session": True},
+            },
+            {
+                "event_id": "desktop-2",
+                "session_id": "session-2",
+                "timestamp_utc": "2026-04-14T05:01:03Z",
+                "source": "desktop",
+                "event_type": "session.heartbeat",
+                "sequence_no": 2,
+                "artifact_ref": "session",
+                "payload": {"status": "active"},
+                "client_version": "0.1.0",
+                "integrity_hash": "hash-4",
+                "policy_context": {"managed_session": True},
+            },
+        ]
+
+        feature_vector = extract_feature_vector(events, session_context)
+        integrity = evaluate_integrity(events, feature_vector, session_context)
+
+        self.assertIn("unsupported_site_visited", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    def test_scoring_returns_haci_and_archetype_distribution(self) -> None:
+        result = score_session(self.events, self.session_context)
+        self.assertGreaterEqual(result["haci_score"], 0)
+        self.assertLessEqual(result["haci_score"], 100)
+        self.assertEqual(len(result["archetype_probabilities"]), 7)
+        probability_sum = sum(result["archetype_probabilities"].values())
+        self.assertAlmostEqual(probability_sum, 1.0, places=3)
+        self.assertIn(result["predicted_archetype"], result["archetype_probabilities"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,13 @@
+{
+  "name": "@assessment-platform/desktop-controller",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build && electron ."
+  },
+  "dependencies": {
+    "electron": "^35.1.2"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "assessment-platform-vscode-assessment",
+  "displayName": "Assessment Platform",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "assessment-platform",
+  "engines": {
+    "vscode": "^1.98.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "assessmentPlatform.openAiAssist",
+        "title": "Assessment Platform: Open AI Assist"
+      },
+      {
+        "command": "assessmentPlatform.captureCopy",
+        "title": "Assessment Platform: Capture Copy"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.98.0"
+  }
+}
+

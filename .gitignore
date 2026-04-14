@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.runtime-data/
+.runtime-data-shared/
+.runtime-data-shared2/
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.DS_Store
