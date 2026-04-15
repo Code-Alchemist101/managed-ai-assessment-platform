@@ -8,6 +8,8 @@ It is written as a software KT document rather than a pitch deck. The goal is to
 
 For the latest operational snapshot, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
 
+For recommended model selection while using AntiGravity or similar agentic tools, see [AGENTS.md](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/AGENTS.md).
+
 ## Workspace And Environment
 
 - Primary repo:
