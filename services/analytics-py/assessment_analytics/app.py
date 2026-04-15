@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from .catalog import MODEL_VERSION
 from .features import extract_feature_vector
 from .integrity import evaluate_integrity
-from .scoring import score_session
+from .scoring import (
+    ARCHETYPE_MODE,
+    TRAINED_MODEL_VERSION,
+    _load_model_bundle,
+    score_session,
+)
 
 
 class SessionPayload(BaseModel):
@@ -17,8 +25,15 @@ app = FastAPI(title="Assessment Analytics API", version="0.1.0")
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, Any]:
+    model_ready = _load_model_bundle() is not None if ARCHETYPE_MODE == "trained_model" else None
+    active_version = TRAINED_MODEL_VERSION if (ARCHETYPE_MODE == "trained_model" and model_ready) else MODEL_VERSION
+    return {
+        "status": "ok",
+        "scoring_mode": ARCHETYPE_MODE,
+        "model_version": active_version,
+        "trained_model_available": model_ready,
+    }
 
 
 @app.post("/extract-features")
