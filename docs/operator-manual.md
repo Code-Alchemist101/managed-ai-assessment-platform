@@ -258,7 +258,10 @@ curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/bootstrap
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/scoring
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/events
+npm run session:report -- <sessionId>
 ```
+
+`session:report` is the fastest local diagnostic command when a run scores but lands in `review`. It summarizes HACI, archetype, integrity flags, source mix, unsupported browser sites, and sequence anomalies from the saved runtime files.
 
 ### Build and tests
 

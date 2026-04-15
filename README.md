@@ -263,7 +263,10 @@ curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/bootstrap
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/scoring
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/events
+npm run session:report -- <sessionId>
 ```
+
+`session:report` reads the saved local runtime files and prints one operator summary with HACI, archetype, integrity flags, missing streams, source mix, unsupported browser sites, and sequence anomaly hints.
 
 ## Managed Edge Notes
 
