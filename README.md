@@ -1,5 +1,7 @@
 # Assessment Platform
 
+Score how a candidate worked, not just what they submitted.
+
 This repository contains the local v1 assessment platform for managed AI-assisted coding sessions. It is intentionally isolated from the research assets in the parent folder.
 
 Published repository:

@@ -2,7 +2,7 @@
   "name": "assessment-platform",
   "private": true,
   "version": "0.1.0",
-  "description": "Managed AI-assisted coding assessment platform for full-session telemetry capture and scoring.",
+  "description": "Score how a candidate worked, not just what they submitted, with managed AI-assisted coding telemetry and scoring.",
   "workspaces": [
     "apps/*",
     "extensions/*",
