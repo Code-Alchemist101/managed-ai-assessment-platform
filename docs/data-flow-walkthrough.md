@@ -1,5 +1,7 @@
 # Data Flow Walkthrough
 
+For the latest release-candidate status and evidence baselines, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Purpose
 
 This document explains what happens technically during a real local live session.
@@ -33,6 +35,25 @@ The candidate does this:
 8. Clicks `End And Score Session`
 
 This walkthrough explains what happens underneath.
+
+## Real-world note from April 14, 2026
+
+The latest human-driven full-manifest session in local runtime data is:
+
+- `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+
+That session proves the flow works end to end:
+
+- desktop, IDE, and browser streams all arrived
+- scoring completed successfully
+- reviewer/admin updated correctly
+
+But it is not the clean acceptance baseline because it landed in `review`.
+
+Why:
+
+- the browser visited unsupported sites such as `bing.com` and `w3schools.com`
+- integrity also flagged sequence gaps for the `browser` and `ide` streams
 
 ## Components Involved
 
@@ -235,6 +256,8 @@ If the candidate opens `docs.python.org`, the browser extension emits a `browser
 If the candidate then switches tabs, the extension emits:
 
 - `browser.tab.activated`
+
+If the candidate instead browses non-allowlisted destinations such as `bing.com` or `w3schools.com`, the raw events are still stored, but the policy layer can later downgrade the session to `review`.
 
 ## Step 6: Browser AI Prompt/Response Example
 
@@ -449,6 +472,8 @@ Integrity outputs one of:
 - `clean`
 - `review`
 - `invalid`
+
+So a session may be complete enough to score and still land in `review`.
 
 ### 13.4 HACI and archetype
 

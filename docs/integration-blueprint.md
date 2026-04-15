@@ -1,5 +1,7 @@
 # Integration Blueprint
 
+For the latest local validation status, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Purpose
 
 This document describes how the current local v1 can evolve into an integration-ready product for assessment platforms or internal enterprise evaluation systems.
@@ -90,6 +92,13 @@ This is the core primitive that keeps managed browser telemetry bound to the cor
 - `GET /api/sessions/:sessionId/scoring`
 
 These endpoints expose the authoritative scoring result and feature vector.
+
+## Observed local behaviors that matter for partner integration
+
+- A session can be fully scored and still carry a `review` verdict if integrity flags are present.
+- Browser allowlists matter operationally; unsupported browsing should downgrade policy without preventing raw event capture.
+- The latest human-driven full-manifest session proved this by scoring successfully while landing in `review` because it visited unsupported sites and surfaced sequence gaps.
+- Third-party AI chat panes inside VS Code may still influence downstream coding behavior without always producing a first-class managed prompt event unless they flow through the assessment extension's own managed AI surface.
 
 ## Recommended partner flow
 

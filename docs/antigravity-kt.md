@@ -6,10 +6,14 @@ This document is the current handoff note for anyone taking over the local asses
 
 It is written as a software KT document rather than a pitch deck. The goal is to make another engineer productive quickly.
 
+For the latest operational snapshot, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Workspace And Environment
 
 - Primary repo:
   - `C:\Users\hosan\Desktop\Research Project\assessment-platform`
+- GitHub repo:
+  - `https://github.com/Code-Alchemist101/managed-ai-assessment-platform`
 - Manual test workspace used during live runs:
   - `C:\Users\hosan\Desktop\Research Project\Test_folder`
 - Operating system:
@@ -294,6 +298,22 @@ npm run dev:desktop-controller
 - Latest automated clean full baseline on the integrated build:
   - `c5ebe45c-2888-4af7-8d1c-447709e8a12c`
 
+### Latest human-driven full-manifest session
+
+- Session:
+  - `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+- Outcome:
+  - scored successfully
+  - HACI `47.6`
+  - archetype `Independent Solver`
+  - verdict `review`
+- Why:
+  - `unsupported_site_visited`
+  - `sequence_gap_detected`
+- Observed unsupported browsing in that run included:
+  - `www.bing.com`
+  - `www.w3schools.com`
+
 ## What Another Engineer Should Know About The UX
 
 During a real full-manifest run, it is normal to see these product surfaces open:
@@ -309,14 +329,18 @@ Also note:
 - The managed Edge profile may show Microsoft profile sync prompts or developer-mode extension warnings.
 - Those prompts do not mean the session binding is wrong.
 - The extension is intentionally loaded only in the managed session profile, not in the user’s normal Edge profile.
+- A successful score does not automatically mean a clean session. The latest human-driven full-manifest run is the clearest current example of a scored session that still routed to human review.
 
 ## Known Remaining Manual Step
 
-The core local-live product is green on the latest build, but one manual polish check still matters:
+The core local-live product is green on the latest build, but two focused follow-ups still matter:
 
 - Signed-in provider sanity check in the managed Edge window
 - Goal:
   - verify `browser.ai.prompt` and `browser.ai.response` are emitted for one supported provider page on the same live session
+- Manual-session sequence-gap investigation
+- Goal:
+  - explain or eliminate the `sequence_gap_detected` path seen in session `36e6bd86-2423-49b7-9da1-9247d7f62e04`
 
 Why this is still manual:
 
@@ -333,6 +357,7 @@ Why this is still manual:
    - `npm run test:analytics`
 2. Start the background full stack with:
    - `npm run dev:stack:start:full`
-3. Perform one signed-in provider sanity check in managed Edge
-4. If that is clean, freeze local v1 and move to packaging, demo, or hosted pilot planning
-5. Treat native Windows idle/focus hooks as post-v1 hardening, not as a blocker
+3. Perform one signed-in provider sanity check in managed Edge on an allowlisted provider page
+4. Reproduce the `sequence_gap_detected` review path with a narrow manual run and decide whether it is a telemetry defect or an acceptable policy downgrade
+5. If those items are understood, freeze local v1 and move to packaging, demo, or hosted pilot planning
+6. Treat native Windows idle/focus hooks as post-v1 hardening, not as a blocker

@@ -1,5 +1,7 @@
 # Architecture Notes
 
+For the latest local validation snapshot, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Product runtime
 
 - The desktop controller is the managed root of trust on Windows.
@@ -18,10 +20,21 @@
 6. Scoring returns HACI, archetype probabilities, confidence, and integrity flags.
 7. Reviewer and admin apps consume control-plane views backed by analytics outputs.
 
+## Local persistence
+
+- Raw per-session events:
+  - `.runtime-data/local-dev/ingestion/sessions/<sessionId>.ndjson`
+- Session inventory:
+  - `.runtime-data/local-dev/control-plane/sessions.json`
+- Scoring payloads:
+  - `.runtime-data/local-dev/control-plane/scorings/<sessionId>.json`
+
+This makes the local system auditable from raw events to final score.
+
 ## Product guardrails
 
 - Sessions are valid only when required telemetry streams are present.
 - Unsupported AI providers or unmanaged browser usage must be flagged.
 - Integrity is evaluated separately from archetype scoring.
 - Historical results stay pinned to feature extraction and scoring versions.
-
+- A session can still score successfully while landing in `review` if integrity flags are present.

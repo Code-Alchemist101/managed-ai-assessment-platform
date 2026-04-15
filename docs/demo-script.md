@@ -1,5 +1,7 @@
 # Demo Script
 
+For the latest baselines and known caveats, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Goal
 
 Use this script for a 10 to 15 minute product walkthrough with a reviewer, evaluator, professor, hiring team, or potential integration partner.
@@ -16,12 +18,7 @@ Start the local stack from the repository root:
 
 ```powershell
 npm run build
-npm run dev:analytics
-npm run dev:ingestion
-npm run dev:control-plane
-npm run dev:reviewer
-npm run dev:admin
-npm run dev:desktop-controller
+npm run dev:stack:start:full
 ```
 
 Keep these ready:
@@ -99,6 +96,7 @@ Steps:
 3. Show that VS Code opens.
 4. Show that Edge opens in the managed isolated profile.
 5. Show that scoring remains locked until both IDE and browser streams appear.
+6. For a clean demo run, stay on allowlisted sites only.
 
 What to emphasize:
 
@@ -165,12 +163,19 @@ If you do not want to rerun live, fall back to saved clean baselines:
   - `f5455aeb-91d5-4261-a49d-b8f5c42136a2`
 - full clean browser baseline:
   - `d0ad26fb-7a63-47f1-9763-9aaaf849f7be`
+- latest human-driven scored-but-reviewed full session:
+  - `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+  - useful when explaining the difference between a scored session and a clean session
 
 ## Closing narrative
 
 Suggested closer:
 
 "The important point is not just that we can score code. The important point is that we can run a managed AI-enabled session, verify whether the required evidence is actually present, and give reviewers a structured view of how the candidate worked."
+
+If asked why a session can score and still route to review, say:
+
+"That is intentional. The score and the integrity policy layer are separate, so the platform can preserve evidence and scoring while still escalating unsupported or suspicious behavior for human review."
 
 ## What to say if asked about commercialization
 

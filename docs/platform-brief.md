@@ -1,5 +1,7 @@
 # Platform Brief
 
+For the latest release-candidate state and evidence baselines, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## One-line pitch
 
 Assessment Platform is a managed local assessment system for AI-assisted coding sessions that scores how a candidate worked, not just what they submitted.
@@ -100,6 +102,16 @@ What is already real:
 - reviewer/admin triage
 - 51-signal analytics processing
 - integrity and policy recommendation outputs
+
+Recent proof points:
+
+- Clean automated full-manifest baseline:
+  - `c5ebe45c-2888-4af7-8d1c-447709e8a12c`
+- Latest human-driven full-manifest session:
+  - `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+  - scored successfully but downgraded to `review` because it visited unsupported sites and surfaced sequence gaps
+
+That distinction matters commercially because the platform can separate "the session scored" from "the session is clean enough for low-friction advancement."
 
 What still belongs to the SaaS phase:
 

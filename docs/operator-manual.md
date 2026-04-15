@@ -1,5 +1,7 @@
 # Operator Manual
 
+For the latest baselines and handoff notes, see [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md).
+
 ## Purpose
 
 This manual is for the person actually running the local assessment platform on Windows.
@@ -156,10 +158,18 @@ npm run dev:stack:start:full
 5. Confirm VS Code opens automatically.
 6. Confirm managed Edge opens automatically.
 7. In VS Code, make at least one real edit and save.
-8. In Edge, let the bootstrap page load and then browse one allowed site.
-9. Confirm the controller does not let you score until both IDE and browser telemetry are present.
-10. End and score the session.
-11. Confirm reviewer/admin show:
+8. In Edge, let the bootstrap page load and browse only allowlisted sites if you want the cleanest possible run:
+   - `chat.openai.com`
+   - `claude.ai`
+   - `gemini.google.com`
+   - `stackoverflow.com`
+   - `developer.mozilla.org`
+   - `docs.python.org`
+   - `www.google.com`
+9. Avoid unsupported sites such as `www.bing.com` and `www.w3schools.com` during a clean acceptance run.
+10. Confirm the controller does not let you score until both IDE and browser telemetry are present.
+11. End and score the session.
+12. Confirm reviewer/admin show:
    - `desktop + ide + browser`
    - no missing required streams
    - integrity verdict `clean`
@@ -188,6 +198,11 @@ This confirms supplemental browser AI evidence on top of browser completeness.
 
 This is still the one meaningful manual polish check left after the latest automated clean full-manifest run. It requires a signed-in browser interaction, so it is not something the local scripts can complete honestly on their own.
 
+## VS Code AI Note
+
+- The strongest first-class VS Code AI prompt/response telemetry currently comes from the assessment extension's own `Assessment Platform: Open AI Assist` command.
+- If you use some other third-party VS Code chat surface, the edit behavior is still visible through IDE events, but the exact prompt text may not always appear as a first-class `ide.ai.prompt` event.
+
 ## Recovery If A Session Gets Stuck
 
 Use this when the controller says a stream is still missing and the run is not progressing.
@@ -202,6 +217,27 @@ Typical reasons for a stuck session:
 - no IDE activity yet
 - managed Edge did not finish bootstrap
 - operator never interacted in one of the required surfaces
+
+## Interpreting A `review` Verdict
+
+A session can be:
+
+- fully scored
+- complete enough to include `desktop + ide + browser`
+- and still land in `review`
+
+Typical reasons:
+
+- unsupported browser sites were visited
+- telemetry sequence gaps were detected
+- heartbeat evidence was missing
+
+The latest human-driven full-manifest session is a good example:
+
+- session: `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+- result: scored successfully
+- verdict: `review`
+- reason: unsupported-site and sequence-gap flags
 
 ## Useful Commands And Checks
 
@@ -243,6 +279,9 @@ Useful clean references already present in local validation history:
   - `d0ad26fb-7a63-47f1-9763-9aaaf849f7be`
 - Latest automated clean full baseline:
   - `c5ebe45c-2888-4af7-8d1c-447709e8a12c`
+- Latest human-driven full session:
+  - `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+  - scored successfully, but verdict `review`
 
 ## When To Stop The Stack
 

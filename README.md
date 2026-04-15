@@ -2,6 +2,10 @@
 
 This repository contains the local v1 assessment platform for managed AI-assisted coding sessions. It is intentionally isolated from the research assets in the parent folder.
 
+Published repository:
+
+- [managed-ai-assessment-platform](https://github.com/Code-Alchemist101/managed-ai-assessment-platform)
+
 ## Current Status
 
 The project is in release-candidate territory for the local v1 goal:
@@ -10,6 +14,7 @@ The project is in release-candidate territory for the local v1 goal:
 - The control plane is the source of truth for manifests, session state, completeness, missing streams, and scoring metadata.
 - The desktop + VS Code live path is working and has multiple clean local sessions.
 - The full desktop + VS Code + Edge live path is implemented, build-green, integration-green, and has clean local runtime baselines for session-scoped browser bootstrap.
+- The latest human-driven full-manifest session also completed end to end and scored successfully, but it landed in `review` rather than `clean` because that session visited unsupported sites and surfaced sequence-gap integrity flags.
 - Reviewer and admin views support real live-session triage instead of only demo-style latest-session behavior.
 - The desktop controller now includes a manifest picker, explicit browser readiness messaging, and an operator recovery action for stuck sessions.
 - Provider-specific browser prompt/response capture is additive evidence only. It does not change stream-completeness rules for the full manifest.
@@ -39,6 +44,7 @@ The project is in release-candidate territory for the local v1 goal:
 ## Supporting Docs
 
 - [Platform Brief](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/platform-brief.md)
+- [Release Status](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/release-status.md)
 - [Integration Blueprint](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/integration-blueprint.md)
 - [Demo Script](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/demo-script.md)
 - [AntiGravity KT Handoff](/C:/Users/hosan/Desktop/Research%20Project/assessment-platform/docs/antigravity-kt.md)
@@ -194,12 +200,21 @@ C:\Users\hosan\Desktop\Research Project\Test_folder
 3. Click `Start Live Session` and choose the test folder.
 4. Confirm VS Code opens automatically.
 5. Confirm Edge opens in the managed session profile.
-6. Confirm the controller does not allow scoring until both IDE and browser telemetry appear.
-7. Confirm reviewer/admin show:
+6. Stay on allowlisted sites if you want a clean acceptance run:
+   - `chat.openai.com`
+   - `claude.ai`
+   - `gemini.google.com`
+   - `stackoverflow.com`
+   - `developer.mozilla.org`
+   - `docs.python.org`
+   - `www.google.com`
+7. Avoid non-allowlisted browsing such as `bing.com` or `w3schools.com` during a clean acceptance pass because the policy layer can intentionally downgrade the session to `review`.
+8. Confirm the controller does not allow scoring until both IDE and browser telemetry appear.
+9. Confirm reviewer/admin show:
    - `desktop + ide + browser`
    - no missing required streams
    - integrity verdict `clean`
-8. If the run gets stuck with a missing stream, use `Abandon Session` and start a fresh run.
+10. If the run gets stuck with a missing stream, use `Abandon Session` and start a fresh run.
 
 ### Provider Prompt/Response Sanity Check
 
@@ -215,6 +230,11 @@ This is a supplemental browser-evidence check on top of the full manifest accept
 5. Confirm the active session records `browser.ai.prompt` and `browser.ai.response` without invalidating the session.
 
 Provider capture is additive evidence only. A session can still be clean without provider prompt/response events if browser completeness and required streams are otherwise satisfied.
+
+For VS Code:
+
+- the strongest first-class prompt/response telemetry currently comes from the assessment extension's own `Assessment Platform: Open AI Assist` command
+- third-party VS Code chat panes can still influence coding behavior, but they may not always emit first-class `ide.ai.prompt` or `ide.ai.response` events
 
 ### Recovery Acceptance
 
@@ -269,6 +289,11 @@ Saved local runtime data currently contains these useful clean baselines:
   - `d0ad26fb-7a63-47f1-9763-9aaaf849f7be`
 - Latest automated clean full-manifest baseline on the integrated build:
   - `c5ebe45c-2888-4af7-8d1c-447709e8a12c`
+- Latest human-driven full-manifest session:
+  - `36e6bd86-2423-49b7-9da1-9247d7f62e04`
+  - status: scored
+  - verdict: `review`
+  - reason: `unsupported_site_visited` plus `sequence_gap_detected`
 
 These full-manifest baselines validate the managed Edge bootstrap path and clean browser-complete scoring. Provider prompt/response capture should still be rechecked on the next signed-in manual full-manifest run.
 
@@ -277,6 +302,8 @@ These full-manifest baselines validate the managed Edge bootstrap path and clean
 - Native Windows idle/focus hooks remain deferred for post-v1 hardening.
 - The analytics pipeline processes all 51 signal slots, but some signals still rely on generic or partial live evidence until native OS hooks are added.
 - Provider-specific browser capture is best-effort on supported provider pages and is intentionally limited to additive prompt/response evidence.
+- Third-party VS Code AI chat panes may influence coding behavior without always producing first-class `ide.ai.prompt` or `ide.ai.response` telemetry unless the interaction flows through the assessment extension's own managed AI panel.
+- One recent human-driven full-manifest session scored successfully but landed in `review` because it visited unsupported sites and surfaced browser/IDE sequence gaps. That is a real operational caveat and should be part of any honest handoff.
 - Browser completeness for the full manifest remains based on the existing managed browser events, not on provider capture.
 - Replay-fixture regression must remain untouched except for compatibility and regression protection.
 
