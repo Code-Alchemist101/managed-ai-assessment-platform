@@ -26,8 +26,12 @@ app = FastAPI(title="Assessment Analytics API", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    model_ready = _load_model_bundle() is not None if ARCHETYPE_MODE == "trained_model" else None
-    active_version = TRAINED_MODEL_VERSION if (ARCHETYPE_MODE == "trained_model" and model_ready) else MODEL_VERSION
+    if ARCHETYPE_MODE == "trained_model":
+        model_ready = _load_model_bundle() is not None
+        active_version = TRAINED_MODEL_VERSION if model_ready else MODEL_VERSION
+    else:
+        model_ready = None
+        active_version = MODEL_VERSION
     return {
         "status": "ok",
         "scoring_mode": ARCHETYPE_MODE,
