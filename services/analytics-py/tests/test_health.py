@@ -28,7 +28,8 @@ class HealthEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["scoring_mode"], "heuristic")
+        self.assertEqual(data["configured_scoring_mode"], "heuristic")
+        self.assertEqual(data["active_scoring_mode"], "heuristic")
         self.assertEqual(data["model_version"], "bootstrap-centroid-v1")
         self.assertIsNone(data["trained_model_available"])
 
@@ -46,7 +47,8 @@ class HealthEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["scoring_mode"], "trained_model")
+        self.assertEqual(data["configured_scoring_mode"], "trained_model")
+        self.assertEqual(data["active_scoring_mode"], "trained_model")
         self.assertEqual(data["model_version"], "xgboost-research-v1")
         self.assertTrue(data["trained_model_available"])
 
@@ -67,7 +69,8 @@ class HealthEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["scoring_mode"], "trained_model")
+        self.assertEqual(data["configured_scoring_mode"], "trained_model")
+        self.assertEqual(data["active_scoring_mode"], "heuristic")
         self.assertEqual(data["model_version"], "bootstrap-centroid-v1")
         self.assertFalse(data["trained_model_available"])
 

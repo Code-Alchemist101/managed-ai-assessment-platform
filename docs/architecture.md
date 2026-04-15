@@ -19,7 +19,7 @@ The analytics service supports two archetype scoring modes, controlled by the `A
 
 HACI computation is independent of the archetype scoring mode and produces identical results for the same input session regardless of which mode is active.
 
-The `/health` endpoint reports the active scoring mode, model version, and whether trained-model artifacts loaded successfully.
+The `/health` endpoint reports both the `configured_scoring_mode` (what `ARCHETYPE_MODE` is set to) and the `active_scoring_mode` (what is actually running after any fallback), along with the model version and whether trained-model artifacts loaded successfully.
 
 ## Data flow
 
