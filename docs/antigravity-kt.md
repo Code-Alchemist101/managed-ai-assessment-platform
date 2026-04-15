@@ -359,6 +359,8 @@ Why this is still manual:
    - `npm run dev:stack:start:full`
 3. Use:
    - `npm run session:report -- 36e6bd86-2423-49b7-9da1-9247d7f62e04`
+   - `npm run session:report:latest`
+   - `npm run session:report:latest:json`
    to get a one-command explanation of the latest human-driven reviewed session before opening raw NDJSON by hand
 4. Perform one signed-in provider sanity check in managed Edge on an allowlisted provider page
 5. Reproduce the `sequence_gap_detected` review path with a narrow manual run and decide whether it is a telemetry defect or an acceptable policy downgrade

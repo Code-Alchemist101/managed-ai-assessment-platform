@@ -259,9 +259,11 @@ curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/bootstrap
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/scoring
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/events
 npm run session:report -- <sessionId>
+npm run session:report:latest
+npm run session:report:latest:json
 ```
 
-`session:report` is the fastest local diagnostic command when a run scores but lands in `review`. It summarizes HACI, archetype, integrity flags, source mix, unsupported browser sites, and sequence anomalies from the saved runtime files.
+`session:report` is the fastest local diagnostic command when a run scores but lands in `review`. It summarizes HACI, archetype, integrity flags, source mix, unsupported browser sites, and sequence anomalies from the saved runtime files. Use `npm run session:report:latest` to inspect the latest scored session immediately, or `npm run session:report:latest:json` when another tool needs structured output.
 
 ### Build and tests
 

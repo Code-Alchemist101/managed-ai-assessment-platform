@@ -264,9 +264,11 @@ curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/bootstrap
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/scoring
 curl.exe -s http://127.0.0.1:4010/api/sessions/<sessionId>/events
 npm run session:report -- <sessionId>
+npm run session:report:latest
+npm run session:report:latest:json
 ```
 
-`session:report` reads the saved local runtime files and prints one operator summary with HACI, archetype, integrity flags, missing streams, source mix, unsupported browser sites, and sequence anomaly hints.
+`session:report` reads the saved local runtime files and prints one operator summary with HACI, archetype, integrity flags, missing streams, source mix, unsupported browser sites, and sequence anomaly hints. Use `npm run session:report:latest` for the latest scored session, and `npm run session:report:latest:json` for machine-readable output. If you need JSON for a specific session ID, run `node scripts/session-report.mjs <sessionId> --json`.
 
 ## Managed Edge Notes
 

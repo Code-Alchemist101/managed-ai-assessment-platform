@@ -117,7 +117,7 @@ This is intended product behavior.
    - `npm run test:integration`
    - `npm run test:analytics`
 2. Run one strict allowlist-only human full-manifest acceptance pass
-3. Use `npm run session:report -- <sessionId>` for a quick local summary before opening raw runtime files by hand
+3. Use `npm run session:report -- <sessionId>`, `npm run session:report:latest`, or `npm run session:report:latest:json` for a quick local summary before opening raw runtime files by hand
 4. Perform the signed-in provider sanity check in managed Edge
 5. Investigate whether the `sequence_gap_detected` flags in the latest human run are a telemetry defect or an acceptable policy downgrade
 6. Freeze local v1 after those items are understood

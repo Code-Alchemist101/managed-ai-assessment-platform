@@ -25,6 +25,8 @@
     "dev:stack:status": "node scripts/dev-stack-manager.mjs status",
     "dev:stack:stop": "node scripts/dev-stack-manager.mjs stop",
     "session:report": "node scripts/session-report.mjs",
+    "session:report:latest": "node scripts/session-report.mjs --latest",
+    "session:report:latest:json": "node scripts/session-report.mjs --latest --json",
     "demo:local": "node scripts/demo-local.mjs",
     "test": "npm run test:analytics",
     "test:analytics": "python -m unittest discover -s services/analytics-py/tests -p test_*.py",

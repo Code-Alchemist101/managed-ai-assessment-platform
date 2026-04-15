@@ -31,8 +31,34 @@ function loadSessions() {
   return sessions;
 }
 
+function parseArgs(argv) {
+  const options = {
+    sessionId: null,
+    latest: false,
+    json: false
+  };
+
+  for (const arg of argv) {
+    if (arg === "--latest") {
+      options.latest = true;
+      continue;
+    }
+
+    if (arg === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    if (!arg.startsWith("--") && !options.sessionId) {
+      options.sessionId = arg;
+    }
+  }
+
+  return options;
+}
+
 function resolveTargetSession(sessions, sessionIdArg) {
-  if (sessionIdArg && !sessionIdArg.startsWith("--")) {
+  if (sessionIdArg) {
     const session = sessions.find((entry) => entry.id === sessionIdArg);
     if (!session) {
       throw new Error(`Session ${sessionIdArg} not found in ${sessionsPath}`);
@@ -41,6 +67,10 @@ function resolveTargetSession(sessions, sessionIdArg) {
     return session;
   }
 
+  return resolveLatestSession(sessions);
+}
+
+function resolveLatestSession(sessions) {
   const latest = [...sessions]
     .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))
     .find((entry) => entry.has_scoring || fileExists(path.join(scoringDir, `${entry.id}.json`)));
@@ -50,6 +80,107 @@ function resolveTargetSession(sessions, sessionIdArg) {
   }
 
   return latest;
+}
+
+function buildSummary(target, scoringPath, scoring, eventsPath, events) {
+  const countsBySource = groupCounts(events, (event) => event.source || "unknown");
+  const unsupportedSites = collectUnsupportedSites(events);
+  const aiEventCounts = collectAiEventCounts(events);
+  const sequenceAnomalies = collectSequenceAnomalies(events);
+  const firstEventAt = events[0]?.timestamp_utc ?? "n/a";
+  const lastEventAt = events[events.length - 1]?.timestamp_utc ?? "n/a";
+  const integrity = scoring?.integrity ?? {};
+
+  return {
+    session: {
+      id: target.id,
+      manifest_id: target.manifest_id,
+      candidate_id: target.candidate_id,
+      status: target.status,
+      created_at: target.created_at,
+      updated_at: target.updated_at
+    },
+    files: {
+      session_inventory: sessionsPath,
+      raw_events: eventsPath,
+      scoring: scoring ? scoringPath : null
+    },
+    scoring: {
+      haci_score: scoring?.haci_score ?? null,
+      haci_band: scoring?.haci_band ?? null,
+      predicted_archetype: scoring?.predicted_archetype ?? null,
+      confidence: scoring?.confidence ?? null,
+      policy_recommendation: scoring?.policy_recommendation ?? null,
+      top_features: scoring?.top_features ?? [],
+      integrity: {
+        verdict: integrity.verdict ?? null,
+        flags: integrity.flags ?? [],
+        notes: integrity.notes ?? [],
+        required_streams_present: integrity.required_streams_present ?? [],
+        missing_streams: integrity.missing_streams ?? []
+      }
+    },
+    events: {
+      count: events.length,
+      first_event_at: firstEventAt,
+      last_event_at: lastEventAt,
+      source_mix: countsBySource,
+      ai_event_counts: aiEventCounts,
+      unsupported_browser_sites: unsupportedSites,
+      sequence_anomalies: sequenceAnomalies
+    }
+  };
+}
+
+function printHumanSummary(summary) {
+  const { session, files, scoring, events } = summary;
+  const integrity = scoring.integrity;
+
+  console.log("Assessment Platform Session Report");
+  console.log("==================================");
+  console.log(`Session ID: ${session.id}`);
+  console.log(`Manifest: ${session.manifest_id}`);
+  console.log(`Candidate: ${session.candidate_id}`);
+  console.log(`Status: ${session.status}`);
+  console.log(`Created: ${session.created_at}`);
+  console.log(`Updated: ${session.updated_at}`);
+  console.log("");
+  console.log("Files");
+  console.log(`- Session inventory: ${files.session_inventory}`);
+  console.log(`- Raw events: ${files.raw_events}`);
+  console.log(`- Scoring: ${files.scoring ?? "not found"}`);
+  console.log("");
+  console.log("Scoring");
+  console.log(`- HACI: ${scoring.haci_score ?? "n/a"} (${scoring.haci_band ?? "n/a"})`);
+  console.log(`- Archetype: ${scoring.predicted_archetype ?? "n/a"} (confidence ${scoring.confidence ?? "n/a"})`);
+  console.log(`- Integrity verdict: ${integrity.verdict ?? "n/a"}`);
+  console.log(`- Policy recommendation: ${scoring.policy_recommendation ?? "n/a"}`);
+  console.log(`- Integrity flags: ${formatList(integrity.flags)}`);
+  console.log(`- Integrity notes: ${formatList(integrity.notes)}`);
+  console.log(`- Required streams present: ${formatList(integrity.required_streams_present)}`);
+  console.log(`- Missing streams: ${formatList(integrity.missing_streams)}`);
+  console.log(
+    `- Top features: ${
+      scoring.top_features.length > 0
+        ? scoring.top_features.map((feature) => `${feature.name} (${feature.contribution})`).join(", ")
+        : "none"
+    }`
+  );
+  console.log("");
+  console.log("Event Summary");
+  console.log(`- Event count: ${events.count}`);
+  console.log(`- First event: ${events.first_event_at}`);
+  console.log(`- Last event: ${events.last_event_at}`);
+  console.log(`- Source mix: ${formatCounts(events.source_mix)}`);
+  console.log(`- AI event counts: ${formatCounts(events.ai_event_counts)}`);
+  console.log(`- Unsupported browser sites: ${formatList(events.unsupported_browser_sites)}`);
+  console.log("- Sequence anomalies:");
+  for (const line of formatSequenceSummary(events.sequence_anomalies)) {
+    console.log(`  - ${line}`);
+  }
+  console.log("");
+  console.log("Tip");
+  console.log(`- Run \`npm run session:report -- ${session.id}\` again any time you need the same summary.`);
 }
 
 function loadEvents(sessionId) {
@@ -208,60 +339,20 @@ function formatList(values) {
 }
 
 function main() {
-  const sessionIdArg = process.argv[2];
+  const options = parseArgs(process.argv.slice(2));
   const sessions = loadSessions();
-  const target = resolveTargetSession(sessions, sessionIdArg);
+  const target = resolveTargetSession(sessions, options.latest ? null : options.sessionId);
   const scoringPath = path.join(scoringDir, `${target.id}.json`);
   const scoring = fileExists(scoringPath) ? readJson(scoringPath) : null;
   const { eventsPath, events } = loadEvents(target.id);
+  const summary = buildSummary(target, scoringPath, scoring, eventsPath, events);
 
-  const countsBySource = groupCounts(events, (event) => event.source || "unknown");
-  const unsupportedSites = collectUnsupportedSites(events);
-  const aiEventCounts = collectAiEventCounts(events);
-  const sequenceAnomalies = collectSequenceAnomalies(events);
-  const firstEventAt = events[0]?.timestamp_utc ?? "n/a";
-  const lastEventAt = events[events.length - 1]?.timestamp_utc ?? "n/a";
-  const integrity = scoring?.integrity ?? {};
-
-  console.log("Assessment Platform Session Report");
-  console.log("==================================");
-  console.log(`Session ID: ${target.id}`);
-  console.log(`Manifest: ${target.manifest_id}`);
-  console.log(`Candidate: ${target.candidate_id}`);
-  console.log(`Status: ${target.status}`);
-  console.log(`Created: ${target.created_at}`);
-  console.log(`Updated: ${target.updated_at}`);
-  console.log("");
-  console.log("Files");
-  console.log(`- Session inventory: ${sessionsPath}`);
-  console.log(`- Raw events: ${eventsPath}`);
-  console.log(`- Scoring: ${scoring ? scoringPath : "not found"}`);
-  console.log("");
-  console.log("Scoring");
-  console.log(`- HACI: ${scoring?.haci_score ?? "n/a"} (${scoring?.haci_band ?? "n/a"})`);
-  console.log(`- Archetype: ${scoring?.predicted_archetype ?? "n/a"} (confidence ${scoring?.confidence ?? "n/a"})`);
-  console.log(`- Integrity verdict: ${integrity.verdict ?? "n/a"}`);
-  console.log(`- Policy recommendation: ${scoring?.policy_recommendation ?? "n/a"}`);
-  console.log(`- Integrity flags: ${formatList(integrity.flags ?? [])}`);
-  console.log(`- Integrity notes: ${formatList(integrity.notes ?? [])}`);
-  console.log(`- Required streams present: ${formatList(integrity.required_streams_present ?? [])}`);
-  console.log(`- Missing streams: ${formatList(integrity.missing_streams ?? [])}`);
-  console.log(`- Top features: ${formatTopFeatures(scoring)}`);
-  console.log("");
-  console.log("Event Summary");
-  console.log(`- Event count: ${events.length}`);
-  console.log(`- First event: ${firstEventAt}`);
-  console.log(`- Last event: ${lastEventAt}`);
-  console.log(`- Source mix: ${formatCounts(countsBySource)}`);
-  console.log(`- AI event counts: ${formatCounts(aiEventCounts)}`);
-  console.log(`- Unsupported browser sites: ${formatList(unsupportedSites)}`);
-  console.log("- Sequence anomalies:");
-  for (const line of formatSequenceSummary(sequenceAnomalies)) {
-    console.log(`  - ${line}`);
+  if (options.json) {
+    console.log(JSON.stringify(summary, null, 2));
+    return;
   }
-  console.log("");
-  console.log("Tip");
-  console.log(`- Run \`npm run session:report -- ${target.id}\` again any time you need the same summary.`);
+
+  printHumanSummary(summary);
 }
 
 try {
