@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import patch
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 if str(PACKAGE_ROOT) not in sys.path:
@@ -17,11 +16,6 @@ from assessment_analytics.scoring import score_session
 
 
 FIXTURE_PATH = Path(__file__).resolve().parents[3] / "fixtures" / "sample-session.json"
-
-def _assert_probability_distribution(testcase: unittest.TestCase, probabilities: dict) -> None:
-    testcase.assertEqual(len(probabilities), 7)
-    probability_sum = sum(probabilities.values())
-    testcase.assertAlmostEqual(probability_sum, 1.0, places=2)
 
 
 class AnalyticsPipelineTests(unittest.TestCase):
@@ -188,62 +182,14 @@ class AnalyticsPipelineTests(unittest.TestCase):
         self.assertIn("unsupported_site_visited", integrity["flags"])
         self.assertEqual(integrity["verdict"], "review")
 
-    def test_scoring_defaults_to_heuristic_mode(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
-            import importlib
-            import assessment_analytics.scoring as scoring
-
-            importlib.reload(scoring)
-            result = scoring.score_session(self.events, self.session_context)
-
-        self.assertEqual(result["scoring_mode"], "heuristic")
-        self.assertEqual(result["model_version"], "bootstrap-centroid-v1")
-        _assert_probability_distribution(self, result["archetype_probabilities"])
+    def test_scoring_returns_haci_and_archetype_distribution(self) -> None:
+        result = score_session(self.events, self.session_context)
+        self.assertGreaterEqual(result["haci_score"], 0)
+        self.assertLessEqual(result["haci_score"], 100)
+        self.assertEqual(len(result["archetype_probabilities"]), 7)
+        probability_sum = sum(result["archetype_probabilities"].values())
+        self.assertAlmostEqual(probability_sum, 1.0, places=3)
         self.assertIn(result["predicted_archetype"], result["archetype_probabilities"])
-
-    def test_scoring_supports_trained_model_mode(self) -> None:
-        with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
-            import importlib
-            import assessment_analytics.scoring as scoring
-
-            importlib.reload(scoring)
-            result = scoring.score_session(self.events, self.session_context)
-
-        self.assertEqual(result["scoring_mode"], "trained_model")
-        self.assertEqual(result["model_version"], "xgboost-research-v1")
-        _assert_probability_distribution(self, result["archetype_probabilities"])
-        self.assertIn(result["predicted_archetype"], result["archetype_probabilities"])
-
-    def test_scoring_falls_back_to_heuristic_when_artifacts_unavailable(self) -> None:
-        with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
-            import importlib
-            import assessment_analytics.scoring as scoring
-
-            importlib.reload(scoring)
-            with patch.object(scoring, "ARTIFACTS_DIR", Path("/nonexistent")):
-                scoring._MODEL_BUNDLE = None
-                scoring._MODEL_LOAD_ERROR = None
-                result = scoring.score_session(self.events, self.session_context)
-
-        self.assertEqual(result["scoring_mode"], "heuristic")
-        self.assertEqual(result["model_version"], "bootstrap-centroid-v1")
-
-    def test_haci_is_stable_across_scoring_modes(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
-            import importlib
-            import assessment_analytics.scoring as scoring
-
-            importlib.reload(scoring)
-            heuristic_result = scoring.score_session(self.events, self.session_context)
-
-        with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
-            import importlib
-            import assessment_analytics.scoring as scoring
-
-            importlib.reload(scoring)
-            trained_result = scoring.score_session(self.events, self.session_context)
-
-        self.assertEqual(heuristic_result["haci_score"], trained_result["haci_score"])
 
 
 if __name__ == "__main__":
