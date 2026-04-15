@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import crypto from "node:crypto";
+import { SessionSequenceManager } from "./sequence-manager";
 
 const defaultControlPlaneUrl =
   process.env.ASSESSMENT_CONTROL_PLANE_URL ?? process.env.CONTROL_PLANE_URL ?? "http://127.0.0.1:4010";
@@ -23,9 +24,7 @@ type AssessmentEvent = {
   policy_context: Record<string, unknown>;
 };
 
-let sequenceNo = 0;
 let sequenceState: vscode.Memento | null = null;
-let sequenceStateSessionId: string | null = null;
 let cachedRuntime:
   | {
       sessionId: string | null;
@@ -36,6 +35,20 @@ let cachedRuntime:
 let retryQueue: AssessmentEvent[] = [];
 let flushTimer: NodeJS.Timeout | null = null;
 let flushInProgress = false;
+const sessionSequenceManager = new SessionSequenceManager({
+  async load(sessionId: string): Promise<number> {
+    if (!sequenceState) {
+      return 0;
+    }
+    return Number(sequenceState.get(getSequenceStateKey(sessionId), 0));
+  },
+  async save(sessionId: string, value: number): Promise<void> {
+    if (!sequenceState) {
+      return;
+    }
+    await sequenceState.update(getSequenceStateKey(sessionId), value);
+  }
+});
 
 function getSequenceStateKey(sessionId: string): string {
   return `assessment-platform.sequence-no.${sessionId}`;
@@ -128,22 +141,6 @@ async function flushRetryQueue(): Promise<void> {
   }
 }
 
-async function nextSequenceNumber(sessionId: string): Promise<number> {
-  if (!sequenceState) {
-    sequenceNo += 1;
-    return sequenceNo;
-  }
-
-  if (sequenceStateSessionId != sessionId) {
-    sequenceStateSessionId = sessionId;
-    sequenceNo = Number(sequenceState.get(getSequenceStateKey(sessionId), 0));
-  }
-
-  sequenceNo += 1;
-  await sequenceState.update(getSequenceStateKey(sessionId), sequenceNo);
-  return sequenceNo;
-}
-
 function buildEvent(
   sessionId: string,
   eventType: string,
@@ -179,7 +176,7 @@ async function publishEvent(eventType: string, artifactRef: string, payload: Rec
     eventType,
     artifactRef,
     payload,
-    await nextSequenceNumber(runtime.sessionId)
+    await sessionSequenceManager.next(runtime.sessionId)
   );
   if (retryQueue.length > 0) {
     retryQueue.push(event);

@@ -12,6 +12,11 @@ import {
   normalizeCapturedText,
   prepareAssessmentEmitForForwarding
 } from "../../extensions/edge-managed/src/provider-capture";
+import {
+  nextBrowserSequenceNumber,
+  reconcileBrowserSequenceState,
+  type BrowserSequenceState
+} from "../../extensions/edge-managed/src/sequence-state";
 
 const bootstrapUrl = "http://127.0.0.1:4010/browser-bootstrap?sessionId=session-123";
 
@@ -148,4 +153,33 @@ test("edge provider helpers only forward content-script events from allowed site
     prepareAssessmentEmitForForwarding(message!, "https://example.com/", ["chat.openai.com"]),
     null
   );
+});
+
+test("edge sequence state keeps monotonic values on same-session refresh", () => {
+  const state: BrowserSequenceState = {
+    sessionId: null,
+    sequenceNo: 0
+  };
+
+  assert.equal(nextBrowserSequenceNumber(state, "session-123"), 1);
+  assert.equal(nextBrowserSequenceNumber(state, "session-123"), 2);
+
+  const reconciled = reconcileBrowserSequenceState(state, "session-123");
+  state.sessionId = reconciled.sessionId;
+  state.sequenceNo = reconciled.sequenceNo;
+  assert.equal(nextBrowserSequenceNumber(state, "session-123"), 3);
+});
+
+test("edge sequence state resets only when session id changes", () => {
+  const state: BrowserSequenceState = {
+    sessionId: "session-123",
+    sequenceNo: 5
+  };
+
+  const reconciled = reconcileBrowserSequenceState(state, "session-456");
+  state.sessionId = reconciled.sessionId;
+  state.sequenceNo = reconciled.sequenceNo;
+
+  assert.equal(state.sessionId, "session-456");
+  assert.equal(nextBrowserSequenceNumber(state, "session-456"), 1);
 });

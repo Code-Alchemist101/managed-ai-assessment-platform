@@ -4,6 +4,11 @@ import {
   isAssessmentEmitMessage,
   prepareAssessmentEmitForForwarding
 } from "./provider-capture.js";
+import {
+  nextBrowserSequenceNumber,
+  reconcileBrowserSequenceState,
+  type BrowserSequenceState
+} from "./sequence-state.js";
 
 const defaultControlPlaneUrl = "http://127.0.0.1:4010";
 const bootstrapStorageKey = "managedSessionContext";
@@ -19,7 +24,10 @@ type SessionBootstrap = {
   required_streams: string[];
 };
 
-let sequenceNo = 0;
+const browserSequenceState: BrowserSequenceState = {
+  sessionId: null,
+  sequenceNo: 0
+};
 let cachedSessionContext: ManagedSessionContext | null = null;
 
 function storageGet<T>(key: string): Promise<T | undefined> {
@@ -54,8 +62,10 @@ function getBootstrapSessionId(candidateUrl: string): string | null {
 }
 
 async function persistSessionContext(context: ManagedSessionContext): Promise<void> {
+  const reconciledState = reconcileBrowserSequenceState(browserSequenceState, context.sessionId);
+  browserSequenceState.sessionId = reconciledState.sessionId;
+  browserSequenceState.sequenceNo = reconciledState.sequenceNo;
   cachedSessionContext = context;
-  sequenceNo = 0;
   await storageSet(bootstrapStorageKey, context);
 }
 
@@ -138,14 +148,13 @@ async function sendEvent(
     return;
   }
 
-  sequenceNo += 1;
   const event = {
     event_id: crypto.randomUUID(),
     session_id: context.sessionId,
     timestamp_utc: new Date().toISOString(),
     source: "browser",
     event_type: eventType,
-    sequence_no: sequenceNo,
+    sequence_no: nextBrowserSequenceNumber(browserSequenceState, context.sessionId),
     artifact_ref: artifactRef,
     payload,
     client_version: "0.1.0",

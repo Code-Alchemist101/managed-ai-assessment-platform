@@ -14,6 +14,7 @@ import {
   selectPreferredManifest,
   shouldAutoStartManagedSession
 } from "../../apps/desktop-controller/src/session-helpers";
+import { SessionSequenceManager } from "../../extensions/vscode-assessment/src/sequence-manager";
 
 test("desktop controller normalizes ingestion endpoints", () => {
   assert.equal(normalizeIngestionEventEndpoint("http://127.0.0.1:4020"), "http://127.0.0.1:4020/api/events");
@@ -221,4 +222,44 @@ test("desktop controller launches managed Edge without first-run onboarding", ()
     "--load-extension=C:\\assessment\\edge-extension",
     "http://127.0.0.1:4010/browser-bootstrap?sessionId=session-123"
   ]);
+});
+
+test("vscode sequence manager allocates strictly monotonic numbers under concurrent bursts", async () => {
+  const store = new Map<string, number>();
+  const manager = new SessionSequenceManager({
+    async load(sessionId: string): Promise<number> {
+      return store.get(sessionId) ?? 0;
+    },
+    async save(sessionId: string, value: number): Promise<void> {
+      store.set(sessionId, value);
+    }
+  });
+
+  const allocated = await Promise.all(
+    Array.from({ length: 25 }, () => manager.next("session-alpha"))
+  );
+
+  const sorted = [...allocated].sort((left, right) => left - right);
+  assert.deepEqual(sorted, Array.from({ length: 25 }, (_, index) => index + 1));
+  assert.equal(store.get("session-alpha"), 25);
+});
+
+test("vscode sequence manager keeps independent monotonic counters per session", async () => {
+  const store = new Map<string, number>([
+    ["session-a", 4],
+    ["session-b", 10]
+  ]);
+  const manager = new SessionSequenceManager({
+    async load(sessionId: string): Promise<number> {
+      return store.get(sessionId) ?? 0;
+    },
+    async save(sessionId: string, value: number): Promise<void> {
+      store.set(sessionId, value);
+    }
+  });
+
+  assert.equal(await manager.next("session-a"), 5);
+  assert.equal(await manager.next("session-a"), 6);
+  assert.equal(await manager.next("session-b"), 11);
+  assert.equal(await manager.next("session-a"), 7);
 });
