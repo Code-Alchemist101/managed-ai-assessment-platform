@@ -9,6 +9,7 @@ import {
   type SessionEventsResponse
 } from "./api";
 import {
+  buildArchetypeProbabilityEntries,
   buildCompletenessSummary,
   buildIntegrityFlagLabels,
   buildTimelineEntries,
@@ -131,6 +132,7 @@ export function App() {
 
   const timeline = useMemo(() => buildTimelineEntries(events), [events]);
   const features = useMemo(() => topFeatureLabels(scoring), [scoring]);
+  const archetypeProbabilities = useMemo(() => buildArchetypeProbabilityEntries(scoring), [scoring]);
   const integrityFlags = useMemo(() => buildIntegrityFlagLabels(scoring), [scoring]);
   const integrityFlagItems = useMemo(() => buildDuplicateSafeItems(integrityFlags), [integrityFlags]);
   const integrityNoteItems = useMemo(
@@ -208,6 +210,23 @@ export function App() {
                 <h2>Integrity Verdict</h2>
                 <p style={{ fontSize: 28, margin: "8px 0" }}>{integrityVerdict}</p>
                 <p style={{ margin: 0 }}>Policy Recommendation: {policyRecommendation}</p>
+              </div>
+              <div style={cardStyle}>
+                <h2>Scoring Provenance</h2>
+                <p style={{ margin: "0 0 8px" }}>Mode: {scoring?.scoring_mode ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Model: {scoring?.model_version ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Archetype certainty:</p>
+                {archetypeProbabilities.length ? (
+                  <ul style={{ paddingLeft: 18, margin: 0 }}>
+                    {archetypeProbabilities.map((item) => (
+                      <li key={item.name}>
+                        {item.name}: {(item.probability * 100).toFixed(1)}%
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ margin: 0 }}>No archetype probability distribution available.</p>
+                )}
               </div>
             </section>
 
