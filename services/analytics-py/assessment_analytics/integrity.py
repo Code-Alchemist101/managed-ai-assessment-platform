@@ -3,6 +3,15 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+# Sessions with fewer than this many total events lack sufficient behavioral
+# signal for reliable archetype scoring.  The heuristic is particularly prone
+# to producing high-confidence Independent-Solver labels when only a handful
+# of typing events are present (the typing_vs_paste_ratio signal degrades to a
+# raw character count when no paste events exist, artificially inflating that
+# archetype's score).  Flagging these sessions routes them to reviewer
+# attention without changing the scoring values themselves.
+_LOW_INFORMATION_EVENT_THRESHOLD = 10
+
 
 def evaluate_integrity(
     events: list[dict[str, Any]],
@@ -66,6 +75,13 @@ def evaluate_integrity(
 
     if any(event["event_type"] == "system.browser.unmanaged" for event in events):
         flags.append("unmanaged_browser_detected")
+
+    if len(events) < _LOW_INFORMATION_EVENT_THRESHOLD:
+        flags.append("low_information_session")
+        notes.append(
+            f"Session has only {len(events)} event(s); archetype scoring may be unreliable "
+            "due to insufficient behavioral signal."
+        )
 
     verdict = "clean"
     if any(flag in flags for flag in ("missing_required_streams", "tamper_signal_detected", "unmanaged_browser_detected")):

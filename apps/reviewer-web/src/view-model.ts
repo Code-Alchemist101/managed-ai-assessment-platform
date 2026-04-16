@@ -99,7 +99,8 @@ const integrityFlagDescriptions: Record<string, string> = {
   suspicious_bulk_paste: "Detected unusually large pasted content.",
   excessive_focus_switching: "Detected excessive app focus switching.",
   excessive_idle_time: "Detected excessive idle time during session.",
-  unmanaged_browser_detected: "Detected unmanaged browser usage."
+  unmanaged_browser_detected: "Detected unmanaged browser usage.",
+  low_information_session: "Too few events for reliable scoring; archetype label should be treated as indicative only."
 };
 
 function humanizeFlag(flag: string): string {
