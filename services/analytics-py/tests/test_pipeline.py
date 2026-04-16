@@ -201,6 +201,53 @@ class AnalyticsPipelineTests(unittest.TestCase):
         _assert_probability_distribution(self, result["archetype_probabilities"])
         self.assertIn(result["predicted_archetype"], result["archetype_probabilities"])
 
+    def test_scoring_always_includes_heuristic_result(self) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+            result = scoring.score_session(self.events, self.session_context)
+
+        self.assertIn("heuristic_result", result)
+        hr = result["heuristic_result"]
+        self.assertEqual(hr["scoring_mode"], "heuristic")
+        self.assertEqual(hr["model_version"], "bootstrap-centroid-v1")
+        _assert_probability_distribution(self, hr["archetype_probabilities"])
+        self.assertIn(hr["predicted_archetype"], hr["archetype_probabilities"])
+        self.assertGreater(hr["confidence"], 0.0)
+
+    def test_scoring_includes_trained_model_result_when_artifacts_available(self) -> None:
+        with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+            result = scoring.score_session(self.events, self.session_context)
+
+        self.assertIn("trained_model_result", result)
+        tmr = result["trained_model_result"]
+        if tmr is not None:
+            self.assertEqual(tmr["scoring_mode"], "trained_model")
+            self.assertEqual(tmr["model_version"], "xgboost-research-v1")
+            _assert_probability_distribution(self, tmr["archetype_probabilities"])
+            self.assertIn(tmr["predicted_archetype"], tmr["archetype_probabilities"])
+            self.assertGreater(tmr["confidence"], 0.0)
+
+    def test_scoring_trained_model_result_is_none_when_artifacts_unavailable(self) -> None:
+        with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+            with patch.object(scoring, "ARTIFACTS_DIR", Path("/nonexistent")):
+                scoring._MODEL_BUNDLE = None
+                scoring._MODEL_LOAD_ERROR = None
+                result = scoring.score_session(self.events, self.session_context)
+
+        self.assertIsNone(result["trained_model_result"])
+        self.assertIsNotNone(result["heuristic_result"])
+
     def test_scoring_supports_trained_model_mode(self) -> None:
         with patch.dict("os.environ", {"ARCHETYPE_MODE": "trained_model"}, clear=True):
             import importlib

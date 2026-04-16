@@ -128,7 +128,26 @@ export const ScoringResultSchema = z.object({
   ),
   integrity: IntegrityResultSchema,
   policy_recommendation: PolicyRecommendationSchema,
-  review_required: z.boolean()
+  review_required: z.boolean(),
+  heuristic_result: z
+    .object({
+      scoring_mode: z.literal("heuristic"),
+      model_version: z.string(),
+      predicted_archetype: ArchetypeSchema,
+      archetype_probabilities: z.record(z.string(), z.number()),
+      confidence: z.number().min(0).max(1)
+    })
+    .optional(),
+  trained_model_result: z
+    .object({
+      scoring_mode: z.literal("trained_model"),
+      model_version: z.string(),
+      predicted_archetype: ArchetypeSchema,
+      archetype_probabilities: z.record(z.string(), z.number()),
+      confidence: z.number().min(0).max(1)
+    })
+    .nullable()
+    .optional()
 });
 
 export const SessionScoringPayloadSchema = ScoringResultSchema.extend({

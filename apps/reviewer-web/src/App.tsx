@@ -12,6 +12,7 @@ import {
 } from "./api";
 import {
   buildArchetypeProbabilityEntries,
+  buildArchetypeProbabilityEntriesFromMap,
   buildCompletenessSummary,
   buildIntegrityFlagLabels,
   buildTimelineEntries,
@@ -230,6 +231,11 @@ export function App() {
                 <h2>Predicted Archetype</h2>
                 <p style={{ fontSize: 28, margin: "8px 0" }}>{scoring?.predicted_archetype ?? "Not scored yet"}</p>
                 <p style={{ margin: 0 }}>Confidence: {scoring?.confidence ?? "pending"}</p>
+                {scoring ? (
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>
+                    Active mode: {scoring.scoring_mode}
+                  </p>
+                ) : null}
               </div>
               <div style={cardStyle}>
                 <h2>Integrity Verdict</h2>
@@ -238,8 +244,8 @@ export function App() {
               </div>
               <div style={cardStyle}>
                 <h2>Scoring Provenance</h2>
-                <p style={{ margin: "0 0 8px" }}>Mode: {scoring?.scoring_mode ?? "pending"}</p>
-                <p style={{ margin: "0 0 8px" }}>Model: {scoring?.model_version ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Active mode: {scoring?.scoring_mode ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Active model: {scoring?.model_version ?? "pending"}</p>
                 <p style={{ margin: "0 0 8px" }}>Archetype certainty:</p>
                 {archetypeProbabilities.length ? (
                   <ul style={{ paddingLeft: 18, margin: 0 }}>
@@ -253,6 +259,20 @@ export function App() {
                   <p style={{ margin: 0 }}>No archetype probability distribution available.</p>
                 )}
               </div>
+            </section>
+
+            <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+              <ScoringModeCard
+                title="Heuristic Result"
+                subtitle="always computed"
+                result={scoring?.heuristic_result ?? null}
+              />
+              <ScoringModeCard
+                title="Trained-Model Result"
+                subtitle="requires artifacts"
+                result={scoring?.trained_model_result ?? null}
+                unavailableLabel="Artifacts not loaded — heuristic used as fallback"
+              />
             </section>
 
             <section style={cardStyle}>
@@ -396,5 +416,58 @@ function StatusCard({ title, body }: { title: string; body: string }) {
       <h2>{title}</h2>
       <p style={{ margin: 0 }}>{body}</p>
     </section>
+  );
+}
+
+type ArchetypeResult = {
+  scoring_mode: string;
+  model_version: string;
+  predicted_archetype: string;
+  archetype_probabilities: Record<string, number>;
+  confidence: number;
+};
+
+function ScoringModeCard({
+  title,
+  subtitle,
+  result,
+  unavailableLabel
+}: {
+  title: string;
+  subtitle: string;
+  result: ArchetypeResult | null;
+  unavailableLabel?: string;
+}) {
+  const cardStyle: React.CSSProperties = {
+    background: "#ffffff",
+    borderRadius: 18,
+    padding: 20,
+    boxShadow: "0 18px 40px rgba(15,23,42,0.08)"
+  };
+
+  const entries = buildArchetypeProbabilityEntriesFromMap(result?.archetype_probabilities);
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ margin: "0 0 4px" }}>{title}</h2>
+      <p style={{ margin: "0 0 10px", fontSize: 12, color: "#64748b" }}>{subtitle}</p>
+      {result ? (
+        <>
+          <p style={{ margin: "0 0 4px", fontWeight: 700 }}>{result.predicted_archetype}</p>
+          <p style={{ margin: "0 0 4px", fontSize: 12, color: "#64748b" }}>Model: {result.model_version}</p>
+          <p style={{ margin: "0 0 8px" }}>Confidence: {(result.confidence * 100).toFixed(1)}%</p>
+          <p style={{ margin: "0 0 4px", fontSize: 12, color: "#64748b" }}>Archetype distribution:</p>
+          <ul style={{ paddingLeft: 18, margin: 0, fontSize: 13 }}>
+            {entries.map((item) => (
+              <li key={item.name}>
+                {item.name}: {(item.probability * 100).toFixed(1)}%
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p style={{ margin: 0, color: "#94a3b8" }}>{unavailableLabel ?? "Not available."}</p>
+      )}
+    </div>
   );
 }

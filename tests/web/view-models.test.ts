@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildArchetypeProbabilityEntries,
+  buildArchetypeProbabilityEntriesFromMap,
   buildCompletenessSummary,
   buildSourceMix,
   buildTimelineEntries,
@@ -233,4 +234,29 @@ test("reviewer completeness helpers support invalid sessions and direct session 
   assert.deepEqual(completeness.missingStreams, ["ide"]);
   assert.deepEqual(completeness.invalidationReasons, ["missing_required_streams"]);
   assert.deepEqual(completeness.sourceCounts, [{ source: "desktop", count: 4 }]);
+});
+
+test("buildArchetypeProbabilityEntriesFromMap ranks raw probability maps for dual-mode display", () => {
+  const probabilities = {
+    "Exploratory Learner": 0.45,
+    "Structured Collaborator": 0.25,
+    "Independent Solver": 0.15,
+    "Blind Copier": 0.05,
+    "Iterative Debugger": 0.04,
+    "AI-Dependent Constructor": 0.04,
+    "Prompt Engineer Solver": 0.02
+  };
+
+  const entries = buildArchetypeProbabilityEntriesFromMap(probabilities);
+
+  assert.equal(entries.length, 7);
+  assert.equal(entries[0].name, "Exploratory Learner");
+  assert.equal(entries[0].probability, 0.45);
+  assert.equal(entries[1].name, "Structured Collaborator");
+  assert.equal(entries[1].probability, 0.25);
+  assert.equal(entries[2].name, "Independent Solver");
+  assert.equal(entries[2].probability, 0.15);
+
+  assert.deepEqual(buildArchetypeProbabilityEntriesFromMap(undefined), []);
+  assert.deepEqual(buildArchetypeProbabilityEntriesFromMap({}), []);
 });

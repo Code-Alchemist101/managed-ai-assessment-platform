@@ -200,22 +200,46 @@ def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] 
     signal_values = feature_vector["signal_values"]
     integrity = evaluate_integrity(events, feature_vector, session_context=session_context)
 
-    scoring_mode = "heuristic"
-    model_version = MODEL_VERSION
+    # Always compute heuristic result.
+    heuristic_archetype_scores = _bootstrap_archetype_scores(signal_values)
+    heuristic_probabilities = {key: round(value, 4) for key, value in _softmax(heuristic_archetype_scores).items()}
+    heuristic_predicted_archetype = max(heuristic_probabilities, key=heuristic_probabilities.get)
+    heuristic_confidence = round(float(heuristic_probabilities[heuristic_predicted_archetype]), 4)
+    heuristic_result: dict[str, Any] = {
+        "scoring_mode": "heuristic",
+        "model_version": MODEL_VERSION,
+        "predicted_archetype": heuristic_predicted_archetype,
+        "archetype_probabilities": heuristic_probabilities,
+        "confidence": heuristic_confidence,
+    }
 
-    trained_result = None
-    if ARCHETYPE_MODE == "trained_model":
-        trained_result = _predict_with_trained_model(signal_values)
+    # Always attempt trained-model result, regardless of ARCHETYPE_MODE, so
+    # both paths are visible to the reviewer when artifacts are available.
+    trained_result_data = _predict_with_trained_model(signal_values)
+    trained_model_result: dict[str, Any] | None = None
+    if trained_result_data is not None:
+        tm_probabilities, tm_predicted_archetype, tm_confidence = trained_result_data
+        trained_model_result = {
+            "scoring_mode": "trained_model",
+            "model_version": TRAINED_MODEL_VERSION,
+            "predicted_archetype": tm_predicted_archetype,
+            "archetype_probabilities": tm_probabilities,
+            "confidence": tm_confidence,
+        }
 
-    if trained_result is not None:
-        probabilities, predicted_archetype, confidence = trained_result
+    # The active result (used for policy decisions) is controlled by ARCHETYPE_MODE.
+    if ARCHETYPE_MODE == "trained_model" and trained_model_result is not None:
         scoring_mode = "trained_model"
         model_version = TRAINED_MODEL_VERSION
+        probabilities = trained_model_result["archetype_probabilities"]
+        predicted_archetype = trained_model_result["predicted_archetype"]
+        confidence = trained_model_result["confidence"]
     else:
-        archetype_scores = _bootstrap_archetype_scores(signal_values)
-        probabilities = {key: round(value, 4) for key, value in _softmax(archetype_scores).items()}
-        predicted_archetype = max(probabilities, key=probabilities.get)
-        confidence = round(float(probabilities[predicted_archetype]), 4)
+        scoring_mode = "heuristic"
+        model_version = MODEL_VERSION
+        probabilities = heuristic_probabilities
+        predicted_archetype = heuristic_predicted_archetype
+        confidence = heuristic_confidence
 
     haci_score, top_features = _compute_haci(signal_values)
 
@@ -247,5 +271,7 @@ def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] 
         "integrity": integrity,
         "policy_recommendation": policy_recommendation,
         "review_required": review_required,
+        "heuristic_result": heuristic_result,
+        "trained_model_result": trained_model_result,
         "feature_vector": feature_vector,
     }
