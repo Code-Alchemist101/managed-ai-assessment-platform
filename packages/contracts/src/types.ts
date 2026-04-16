@@ -156,6 +156,15 @@ export const LocalRuntimeConfigSchema = z.object({
   latest_scored_session_id: z.string().nullable()
 });
 
+export const ReviewerDecisionValueSchema = z.enum(["approve", "reject", "needs_followup"]);
+
+export const ReviewerDecisionSchema = z.object({
+  session_id: z.string(),
+  decision: ReviewerDecisionValueSchema,
+  note: z.string().optional(),
+  decided_at: z.string().datetime()
+});
+
 export const haciWeights = {
   typing_vs_paste_ratio: 0.25,
   prompt_refinement_count: 0.25,
@@ -183,3 +192,5 @@ export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type SessionScoringPayload = z.infer<typeof SessionScoringPayloadSchema>;
 export type SessionBootstrap = z.infer<typeof SessionBootstrapSchema>;
 export type LocalRuntimeConfig = z.infer<typeof LocalRuntimeConfigSchema>;
+export type ReviewerDecisionValue = z.infer<typeof ReviewerDecisionValueSchema>;
+export type ReviewerDecision = z.infer<typeof ReviewerDecisionSchema>;

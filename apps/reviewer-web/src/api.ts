@@ -1,4 +1,4 @@
-import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
+import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload, ReviewerDecision, ReviewerDecisionValue } from "@assessment-platform/contracts";
 
 const controlPlaneUrl = import.meta.env.VITE_CONTROL_PLANE_URL ?? "http://127.0.0.1:4010";
 
@@ -50,4 +50,27 @@ export async function loadScoringIfPresent(sessionId: string): Promise<SessionSc
 
 export async function loadSessionEvents(sessionId: string): Promise<SessionEventsResponse> {
   return fetchJson<SessionEventsResponse>(`${controlPlaneUrl}/api/sessions/${sessionId}/events`);
+}
+
+export async function loadDecision(sessionId: string): Promise<ReviewerDecision | null> {
+  try {
+    return await fetchJson<ReviewerDecision>(`${controlPlaneUrl}/api/sessions/${sessionId}/decision`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("404")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function saveDecision(sessionId: string, decision: ReviewerDecisionValue, note?: string): Promise<ReviewerDecision> {
+  const response = await fetch(`${controlPlaneUrl}/api/sessions/${sessionId}/decision`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decision, note })
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<ReviewerDecision>;
 }

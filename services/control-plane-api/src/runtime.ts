@@ -14,6 +14,7 @@ export type ControlPlaneRuntime = {
   manifestsFile: string;
   sessionsFile: string;
   scoringsDir: string;
+  reviewDecisionsDir: string;
   ingestionSessionsDir: string;
   fixturePath: string;
 };
@@ -47,6 +48,7 @@ export function resolveControlPlaneRuntime(): ControlPlaneRuntime {
     manifestsFile: path.join(storageDir, "manifests.json"),
     sessionsFile: path.join(storageDir, "sessions.json"),
     scoringsDir: path.join(storageDir, "scorings"),
+    reviewDecisionsDir: path.join(storageDir, "review-decisions"),
     ingestionSessionsDir: path.join(dataRoot, "ingestion", "sessions"),
     fixturePath: path.join(repoRoot, "fixtures", "sample-session.json")
   };
