@@ -323,23 +323,45 @@ test("scoringModesDisagree detects archetype disagreement between dual scoring m
     }
   };
 
+  const heuristicExploratory = {
+    scoring_mode: "heuristic" as const,
+    model_version: "bootstrap-centroid-v1",
+    predicted_archetype: "Exploratory Learner" as const,
+    archetype_probabilities: {},
+    confidence: 0.6
+  };
+  const modelExploratory = {
+    scoring_mode: "trained_model" as const,
+    model_version: "xgboost-research-v1",
+    predicted_archetype: "Exploratory Learner" as const,
+    archetype_probabilities: {},
+    confidence: 0.72
+  };
+  const modelBlindCopier = {
+    scoring_mode: "trained_model" as const,
+    model_version: "xgboost-research-v1",
+    predicted_archetype: "Blind Copier" as const,
+    archetype_probabilities: {},
+    confidence: 0.55
+  };
+
   // Returns false when scoring is null
   assert.equal(scoringModesDisagree(null), false);
 
   // Returns false when only heuristic_result is present (no trained_model_result)
-  assert.equal(scoringModesDisagree({ ...baseScoring, heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 } }), false);
+  assert.equal(scoringModesDisagree({ ...baseScoring, heuristic_result: heuristicExploratory }), false);
 
   // Returns false when both modes agree on the same archetype
   assert.equal(scoringModesDisagree({
     ...baseScoring,
-    heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 },
-    trained_model_result: { scoring_mode: "trained_model", model_version: "xgboost-research-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.72 }
+    heuristic_result: heuristicExploratory,
+    trained_model_result: modelExploratory
   }), false);
 
   // Returns true when heuristic and trained-model predict different archetypes
   assert.equal(scoringModesDisagree({
     ...baseScoring,
-    heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 },
-    trained_model_result: { scoring_mode: "trained_model", model_version: "xgboost-research-v1", predicted_archetype: "Blind Copier", archetype_probabilities: {}, confidence: 0.55 }
+    heuristic_result: heuristicExploratory,
+    trained_model_result: modelBlindCopier
   }), true);
 });
