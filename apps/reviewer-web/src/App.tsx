@@ -16,6 +16,7 @@ import {
   buildCompletenessSummary,
   buildIntegrityFlagLabels,
   buildTimelineEntries,
+  confidenceLabel,
   eventCount,
   formatReviewerDecision,
   resolvePreferredSessionId,
@@ -230,7 +231,16 @@ export function App() {
               <div style={cardStyle}>
                 <h2>Predicted Archetype</h2>
                 <p style={{ fontSize: 28, margin: "8px 0" }}>{scoring?.predicted_archetype ?? "Not scored yet"}</p>
-                <p style={{ margin: 0 }}>Confidence: {scoring?.confidence ?? "pending"}</p>
+                {scoring ? (
+                  <p style={{ margin: 0 }}>{confidenceLabel(scoring.scoring_mode)}: {(scoring.confidence * 100).toFixed(1)}%</p>
+                ) : (
+                  <p style={{ margin: 0 }}>Score Strength / Model Confidence: pending</p>
+                )}
+                {scoring?.scoring_mode === "heuristic" ? (
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+                    Relative score strength — not a probability estimate.
+                  </p>
+                ) : null}
                 {scoring ? (
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>
                     Active mode: {scoring.scoring_mode}
@@ -455,7 +465,12 @@ function ScoringModeCard({
         <>
           <p style={{ margin: "0 0 4px", fontWeight: 700 }}>{result.predicted_archetype}</p>
           <p style={{ margin: "0 0 4px", fontSize: 12, color: "#64748b" }}>Model: {result.model_version}</p>
-          <p style={{ margin: "0 0 8px" }}>Confidence: {(result.confidence * 100).toFixed(1)}%</p>
+          <p style={{ margin: result.scoring_mode === "heuristic" ? "0 0 4px" : "0 0 8px" }}>{confidenceLabel(result.scoring_mode)}: {(result.confidence * 100).toFixed(1)}%</p>
+          {result.scoring_mode === "heuristic" ? (
+            <p style={{ margin: "0 0 8px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+              Relative score strength — not a probability estimate.
+            </p>
+          ) : null}
           <p style={{ margin: "0 0 4px", fontSize: 12, color: "#64748b" }}>Archetype distribution:</p>
           <ul style={{ paddingLeft: 18, margin: 0, fontSize: 13 }}>
             {entries.map((item) => (

@@ -28,6 +28,17 @@ export function formatReviewerDecision(decision: ReviewerDecisionValue): string 
   return decision.charAt(0).toUpperCase() + decision.slice(1);
 }
 
+/**
+ * Returns a reviewer-facing label for the confidence value that reflects how
+ * it was produced.  Heuristic confidence is softmax-normalized score mass and
+ * should NOT be presented as a calibrated probability.  Trained-model
+ * confidence (predict_proba output) is probabilistic and can use the
+ * conventional "Confidence" term.
+ */
+export function confidenceLabel(scoringMode: string): string {
+  return scoringMode === "trained_model" ? "Model Confidence" : "Score Strength";
+}
+
 function humanizeEventType(eventType: string): string {
   return eventType
     .replace(/\./g, " ")
