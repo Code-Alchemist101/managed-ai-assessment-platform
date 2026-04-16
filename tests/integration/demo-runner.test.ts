@@ -163,3 +163,87 @@ test("demo replay creates a scored session with persisted scoring and ingested e
   assert.ok(events.events.length > 0);
   assert.ok(events.events.every((event) => event.session_id === replayPayload.session.id));
 });
+
+test("reviewer decision persistence saves and returns the note field correctly", async (t) => {
+  const repoRoot = path.resolve(process.cwd());
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), "assessment-platform-decision-"));
+  t.after(async () => {
+    await rm(dataRoot, { recursive: true, force: true });
+  });
+
+  const runtime: ControlPlaneRuntime = {
+    host: "127.0.0.1",
+    port: 0,
+    controlPlaneUrl: "http://127.0.0.1:4010",
+    ingestionUrl: "http://127.0.0.1:0",
+    analyticsUrl: "http://127.0.0.1:0",
+    reviewerUrl: "http://127.0.0.1:4173",
+    adminUrl: "http://127.0.0.1:4174",
+    repoRoot,
+    dataRoot,
+    storageDir: path.join(dataRoot, "control-plane"),
+    manifestsFile: path.join(dataRoot, "control-plane", "manifests.json"),
+    sessionsFile: path.join(dataRoot, "control-plane", "sessions.json"),
+    scoringsDir: path.join(dataRoot, "control-plane", "scorings"),
+    reviewDecisionsDir: path.join(dataRoot, "control-plane", "review-decisions"),
+    ingestionSessionsDir: path.join(dataRoot, "ingestion", "sessions"),
+    fixturePath: path.join(repoRoot, "fixtures", "sample-session.json")
+  };
+
+  const controlPlaneApp = await buildControlPlaneApp(runtime);
+  t.after(async () => {
+    await controlPlaneApp.close();
+  });
+
+  const createResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: "/api/sessions",
+    payload: { manifest_id: "manifest-python-cli", candidate_id: "reviewer-decision-test" }
+  });
+  assert.equal(createResponse.statusCode, 200);
+  const session = createResponse.json() as { id: string };
+
+  // POST with a note persists the note on the decision record.
+  const postWithNoteResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: `/api/sessions/${session.id}/decision`,
+    payload: { decision: "approve", note: "Looks good, strong independent work." }
+  });
+  assert.equal(postWithNoteResponse.statusCode, 200);
+  const postWithNote = postWithNoteResponse.json() as { decision: string; note?: string; session_id: string; decided_at: string };
+  assert.equal(postWithNote.decision, "approve");
+  assert.equal(postWithNote.note, "Looks good, strong independent work.");
+  assert.equal(postWithNote.session_id, session.id);
+  assert.ok(postWithNote.decided_at);
+
+  // GET returns the persisted decision including the note.
+  const getWithNoteResponse = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${session.id}/decision`
+  });
+  assert.equal(getWithNoteResponse.statusCode, 200);
+  const getWithNote = getWithNoteResponse.json() as { decision: string; note?: string };
+  assert.equal(getWithNote.decision, "approve");
+  assert.equal(getWithNote.note, "Looks good, strong independent work.");
+
+  // POST without a note overwrites the decision and the note is absent.
+  const postWithoutNoteResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: `/api/sessions/${session.id}/decision`,
+    payload: { decision: "reject" }
+  });
+  assert.equal(postWithoutNoteResponse.statusCode, 200);
+  const postWithoutNote = postWithoutNoteResponse.json() as { decision: string; note?: string };
+  assert.equal(postWithoutNote.decision, "reject");
+  assert.equal(postWithoutNote.note, undefined);
+
+  // GET confirms the note is absent after an update without one.
+  const getWithoutNoteResponse = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${session.id}/decision`
+  });
+  assert.equal(getWithoutNoteResponse.statusCode, 200);
+  const getWithoutNote = getWithoutNoteResponse.json() as { decision: string; note?: string };
+  assert.equal(getWithoutNote.decision, "reject");
+  assert.equal(getWithoutNote.note, undefined);
+});
