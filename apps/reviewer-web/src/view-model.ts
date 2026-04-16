@@ -52,8 +52,16 @@ export function buildArchetypeProbabilityEntries(scoring: SessionScoringPayload 
   if (!scoring) {
     return [];
   }
+  return buildArchetypeProbabilityEntriesFromMap(scoring.archetype_probabilities);
+}
 
-  return Object.entries(scoring.archetype_probabilities ?? {})
+export function buildArchetypeProbabilityEntriesFromMap(
+  probabilities: Record<string, number> | undefined
+): ArchetypeProbabilityEntry[] {
+  if (!probabilities) {
+    return [];
+  }
+  return Object.entries(probabilities)
     .map(([name, probability]) => ({ name, probability }))
     .sort((left, right) => right.probability - left.probability || left.name.localeCompare(right.name));
 }
