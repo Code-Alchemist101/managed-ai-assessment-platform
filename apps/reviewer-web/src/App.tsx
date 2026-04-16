@@ -270,15 +270,15 @@ export function App() {
                 ) : integrityFlags.length ? (
                   <>
                     <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
-                      {integrityFlags.map((flag) => (
-                        <li key={flag}>{flag}</li>
+                      {integrityFlags.map((flag, index) => (
+                        <li key={`${index}-${flag}`}>{flag}</li>
                       ))}
                     </ul>
                     <p style={{ margin: "0 0 8px" }}>Notes:</p>
                     {scoring.integrity.notes.length ? (
                       <ul style={{ paddingLeft: 18, margin: 0 }}>
-                        {scoring.integrity.notes.map((note) => (
-                          <li key={note}>{note}</li>
+                        {scoring.integrity.notes.map((note, index) => (
+                          <li key={`${index}-${note}`}>{note}</li>
                         ))}
                       </ul>
                     ) : (
