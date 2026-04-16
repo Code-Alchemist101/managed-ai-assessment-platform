@@ -10,6 +10,7 @@ import {
 } from "./api";
 import {
   buildCompletenessSummary,
+  buildIntegrityFlagLabels,
   buildTimelineEntries,
   eventCount,
   resolvePreferredSessionId,
@@ -121,6 +122,7 @@ export function App() {
 
   const timeline = useMemo(() => buildTimelineEntries(events), [events]);
   const features = useMemo(() => topFeatureLabels(scoring), [scoring]);
+  const integrityFlags = useMemo(() => buildIntegrityFlagLabels(scoring), [scoring]);
   const totalEvents = useMemo(
     () => eventCount(events) || Object.values(selectedSession?.event_counts_by_source ?? {}).reduce((sum, count) => sum + count, 0),
     [events, selectedSession]
@@ -260,6 +262,32 @@ export function App() {
                     ? completeness.sourceCounts.map((item) => `${item.source} (${item.count})`).join(", ")
                     : "None"}
                 </p>
+              </div>
+              <div style={cardStyle}>
+                <h2>Integrity Flags</h2>
+                {!scoring ? (
+                  <p style={{ margin: "0 0 8px" }}>Score this session to view integrity detail.</p>
+                ) : integrityFlags.length ? (
+                  <>
+                    <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
+                      {integrityFlags.map((flag) => (
+                        <li key={flag}>{flag}</li>
+                      ))}
+                    </ul>
+                    <p style={{ margin: "0 0 8px" }}>Notes:</p>
+                    {scoring.integrity.notes.length ? (
+                      <ul style={{ paddingLeft: 18, margin: 0 }}>
+                        {scoring.integrity.notes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p style={{ margin: 0 }}>None</p>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ margin: 0 }}>No integrity flags.</p>
+                )}
               </div>
             </section>
           </>
