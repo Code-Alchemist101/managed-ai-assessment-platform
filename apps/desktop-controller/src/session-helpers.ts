@@ -37,7 +37,7 @@ export function guardStartManagedSession(activeSession: boolean): string | null 
 }
 
 export function deriveWindowsNativeVsCodeExecutablePath(executablePath: string): string | null {
-  const executableName = path.basename(executablePath).toLowerCase();
+  const executableName = path.win32.basename(executablePath).toLowerCase();
   const nativeExecutableName =
     executableName === "code.cmd"
       ? "Code.exe"
@@ -49,7 +49,7 @@ export function deriveWindowsNativeVsCodeExecutablePath(executablePath: string):
     return null;
   }
 
-  return path.join(path.dirname(path.dirname(executablePath)), nativeExecutableName);
+  return path.win32.join(path.win32.dirname(path.win32.dirname(executablePath)), nativeExecutableName);
 }
 
 export function buildManagedBrowserLaunchArgs(profilePath: string, extensionPath: string, bootstrapUrl: string): string[] {
@@ -81,7 +81,7 @@ export function selectPreferredManifest<T extends ManifestLike>(
 
 export function resolveAutoStartWorkspacePath(workspacePath: string | null | undefined): string | null {
   const trimmedWorkspacePath = workspacePath?.trim();
-  return trimmedWorkspacePath ? path.resolve(trimmedWorkspacePath) : null;
+  return trimmedWorkspacePath ? path.win32.resolve(trimmedWorkspacePath) : null;
 }
 
 export function shouldAutoStartManagedSession(options: {
