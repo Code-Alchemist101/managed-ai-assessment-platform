@@ -4,6 +4,7 @@ import {
   buildArchetypeProbabilityEntries,
   buildArchetypeProbabilityEntriesFromMap,
   buildCompletenessSummary,
+  buildIntegrityFlagLabels,
   buildSourceMix,
   buildTimelineEntries,
   confidenceLabel,
@@ -364,4 +365,55 @@ test("scoringModesDisagree detects archetype disagreement between dual scoring m
     heuristic_result: heuristicExploratory,
     trained_model_result: modelBlindCopier
   }), true);
+});
+
+test("buildIntegrityFlagLabels renders low_information_session with reviewer-facing description", () => {
+  const baseScoring = {
+    session_id: "session-sparse",
+    model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic" as const,
+    haci_score: 20,
+    haci_band: "low" as const,
+    predicted_archetype: "Independent Solver" as const,
+    archetype_probabilities: { "Independent Solver": 0.71 },
+    confidence: 0.71,
+    top_features: [],
+    integrity: {
+      verdict: "review" as const,
+      flags: ["low_information_session"],
+      required_streams_present: ["desktop", "ide"],
+      missing_streams: [],
+      notes: ["Session has only 4 event(s); archetype scoring may be unreliable due to insufficient behavioral signal."]
+    },
+    policy_recommendation: "human-review" as const,
+    review_required: true,
+    feature_vector: {
+      session_id: "session-sparse",
+      extraction_version: "0.1.0",
+      generated_at: "2026-04-12T09:10:00Z",
+      signal_values: {},
+      signals: [],
+      completeness: "partial" as const,
+      invalidation_reasons: []
+    }
+  };
+
+  // null input returns empty array
+  assert.deepEqual(buildIntegrityFlagLabels(null), []);
+
+  const labels = buildIntegrityFlagLabels(baseScoring);
+  assert.equal(labels.length, 1);
+  // The label must contain the human-readable description and the flag name
+  assert.match(labels[0], /Too few events for reliable scoring/);
+  assert.match(labels[0], /low_information_session/);
+
+  // Known flags with no descriptions fall back to humanized form
+  const withUnknownFlag = {
+    ...baseScoring,
+    integrity: { ...baseScoring.integrity, flags: ["some_future_flag"] }
+  };
+  const unknownLabels = buildIntegrityFlagLabels(withUnknownFlag);
+  assert.equal(unknownLabels.length, 1);
+  assert.match(unknownLabels[0], /Some Future Flag/);
+  assert.match(unknownLabels[0], /some_future_flag/);
 });

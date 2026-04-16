@@ -3,6 +3,12 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+# Sessions with fewer than this many total events can be low-information for
+# archetype scoring, but we only flag the specific sparse signature that is
+# known to inflate Independent Solver confidence: short session + typing-only
+# edits + no AI prompt telemetry.
+_LOW_INFORMATION_EVENT_THRESHOLD = 10
+
 
 def evaluate_integrity(
     events: list[dict[str, Any]],
@@ -66,6 +72,22 @@ def evaluate_integrity(
 
     if any(event["event_type"] == "system.browser.unmanaged" for event in events):
         flags.append("unmanaged_browser_detected")
+
+    total_insert_events = feature_vector["signal_values"].get("total_insert_events", 0)
+    total_paste_events = feature_vector["signal_values"].get("total_paste_events", 0)
+    total_prompts_sent = feature_vector["signal_values"].get("total_prompts_sent", 0)
+    likely_sparse_independent_solver_signature = (
+        len(events) < _LOW_INFORMATION_EVENT_THRESHOLD
+        and total_insert_events > 0
+        and total_paste_events == 0
+        and total_prompts_sent == 0
+    )
+    if likely_sparse_independent_solver_signature:
+        flags.append("low_information_session")
+        notes.append(
+            f"Session has only {len(events)} event(s); archetype scoring may be unreliable "
+            "due to insufficient behavioral signal."
+        )
 
     verdict = "clean"
     if any(flag in flags for flag in ("missing_required_streams", "tamper_signal_detected", "unmanaged_browser_detected")):

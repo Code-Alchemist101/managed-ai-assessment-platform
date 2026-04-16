@@ -142,6 +142,7 @@ class AnalyticsPipelineTests(unittest.TestCase):
         integrity = evaluate_integrity(events, feature_vector, session_context)
 
         self.assertNotIn("unsupported_site_visited", integrity["flags"])
+        self.assertNotIn("low_information_session", integrity["flags"])
         self.assertEqual(integrity["verdict"], "clean")
 
     def test_integrity_flags_explicitly_unsupported_browser_navigation(self) -> None:
@@ -358,6 +359,137 @@ class AnalyticsPipelineTests(unittest.TestCase):
             trained_result = scoring.score_session(self.events, self.session_context)
 
         self.assertEqual(heuristic_result["haci_score"], trained_result["haci_score"])
+
+
+def _make_short_session_events(event_count: int, typed_chars: int = 0) -> list[dict]:
+    """Build a minimal event list for short-session tests.
+
+    The first two events are always session.started (desktop) and
+    session.heartbeat (desktop).  Additional events up to *event_count* are
+    ide.document.changed events that insert *typed_chars* characters each.
+    All events belong to the same session and are spaced 5 seconds apart.
+    """
+    base_ts = "2026-04-14T06:00:{:02d}Z"
+    events = [
+        {
+            "event_id": "desktop-1",
+            "session_id": "short-session-1",
+            "timestamp_utc": base_ts.format(0),
+            "source": "desktop",
+            "event_type": "session.started",
+            "sequence_no": 1,
+            "artifact_ref": "session",
+            "payload": {"status": "active"},
+            "client_version": "0.1.0",
+            "integrity_hash": "h1",
+            "policy_context": {},
+        },
+        {
+            "event_id": "desktop-2",
+            "session_id": "short-session-1",
+            "timestamp_utc": base_ts.format(5),
+            "source": "desktop",
+            "event_type": "session.heartbeat",
+            "sequence_no": 2,
+            "artifact_ref": "session",
+            "payload": {"status": "active"},
+            "client_version": "0.1.0",
+            "integrity_hash": "h2",
+            "policy_context": {},
+        },
+    ]
+    for index in range(event_count - 2):
+        events.append({
+            "event_id": f"ide-{index + 1}",
+            "session_id": "short-session-1",
+            "timestamp_utc": base_ts.format(10 + index * 5),
+            "source": "ide",
+            "event_type": "ide.document.changed",
+            "sequence_no": index + 1,
+            "artifact_ref": "file:main.py",
+            "payload": {
+                "inserted_chars": typed_chars,
+                "deleted_chars": 0,
+                "change_source": "typing",
+            },
+            "client_version": "0.1.0",
+            "integrity_hash": f"h-ide-{index + 1}",
+            "policy_context": {},
+        })
+    return events
+
+
+class ShortSessionTests(unittest.TestCase):
+    """Regression tests for sparse-telemetry / low-information sessions."""
+
+    _SESSION_CONTEXT = {
+        "required_streams": ["desktop", "ide"],
+    }
+
+    # ------------------------------------------------------------------
+    # Integrity flag tests
+    # ------------------------------------------------------------------
+
+    def test_short_session_without_sparse_signature_is_not_flagged_low_information(self) -> None:
+        """Short sessions are not flagged unless they match the known sparse signature."""
+        events = _make_short_session_events(event_count=4)
+        feature_vector = extract_feature_vector(events, self._SESSION_CONTEXT)
+        integrity = evaluate_integrity(events, feature_vector, self._SESSION_CONTEXT)
+
+        self.assertNotIn("low_information_session", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "clean")
+
+    def test_sparse_signature_without_ai_or_paste_gets_low_information_flag(self) -> None:
+        """Low-information flag is grounded to the known short typing-only sparse pattern."""
+        events = _make_short_session_events(event_count=4, typed_chars=20)
+        feature_vector = extract_feature_vector(events, self._SESSION_CONTEXT)
+        integrity = evaluate_integrity(events, feature_vector, self._SESSION_CONTEXT)
+
+        self.assertIn("low_information_session", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+        self.assertTrue(any("insufficient behavioral signal" in note for note in integrity["notes"]))
+
+    # ------------------------------------------------------------------
+    # Scoring bias documentation tests
+    # ------------------------------------------------------------------
+
+    def test_sparse_session_with_typing_produces_high_independent_solver_confidence(self) -> None:
+        """Documents the known heuristic bias: a short session with a few typed
+        chars and no paste/AI activity yields a high-confidence Independent
+        Solver label due to typing_vs_paste_ratio being computed as raw typed
+        character count when no paste events are present.
+
+        This test CONFIRMS the bias and the low_information_session flag is the
+        mitigation.  The label should be treated as indicative only.
+        """
+        events = _make_short_session_events(event_count=4, typed_chars=20)
+        result = score_session(events, self._SESSION_CONTEXT)
+
+        # Bias confirmed: Independent Solver wins at high confidence.
+        self.assertEqual(result["heuristic_result"]["predicted_archetype"], "Independent Solver")
+        self.assertGreater(result["heuristic_result"]["confidence"], 0.50)
+
+        # Mitigation confirmed: integrity flags the low-information condition.
+        self.assertIn("low_information_session", result["integrity"]["flags"])
+
+        # Policy confirmed: sparse session requires human review (cannot auto-advance).
+        self.assertEqual(result["policy_recommendation"], "human-review")
+        self.assertTrue(result["review_required"])
+
+    def test_sparse_session_always_requires_human_review(self) -> None:
+        """Even if a sparse session somehow satisfies the confidence threshold,
+        the low_information_session integrity flag keeps verdict at 'review',
+        blocking auto-advance policy."""
+        events = _make_short_session_events(event_count=4, typed_chars=20)
+        # Use a very permissive policy override so that confidence alone would
+        # allow auto-advance.
+        context = {**self._SESSION_CONTEXT, "decision_policy": {"auto_advance_min_confidence": 0.10}}
+        result = score_session(events, context)
+
+        # Despite the permissive threshold, the integrity review verdict and the
+        # absence of a clean integrity verdict prevent auto-advance.
+        self.assertNotEqual(result["policy_recommendation"], "auto-advance")
+        self.assertTrue(result["review_required"])
 
 
 if __name__ == "__main__":
