@@ -1,4 +1,4 @@
-import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
+import type { LocalRuntimeConfig, ReviewerDecisionValue, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
 import type { SessionEventsResponse } from "./api";
 
 export type TimelineEntry = {
@@ -19,6 +19,15 @@ export type CompletenessSummary = {
   sourceCounts: SourceMixEntry[];
 };
 
+export type ArchetypeProbabilityEntry = { name: string; probability: number };
+
+export function formatReviewerDecision(decision: ReviewerDecisionValue): string {
+  if (decision === "needs_followup") {
+    return "Needs Follow-up";
+  }
+  return decision.charAt(0).toUpperCase() + decision.slice(1);
+}
+
 function humanizeEventType(eventType: string): string {
   return eventType
     .replace(/\./g, " ")
@@ -37,6 +46,44 @@ export function buildTimelineEntries(eventsResponse: SessionEventsResponse | nul
 
 export function topFeatureLabels(scoring: SessionScoringPayload | null): string[] {
   return scoring?.top_features.map((feature) => `${feature.name} (${feature.contribution.toFixed(3)})`) ?? [];
+}
+
+export function buildArchetypeProbabilityEntries(scoring: SessionScoringPayload | null): ArchetypeProbabilityEntry[] {
+  if (!scoring) {
+    return [];
+  }
+
+  return Object.entries(scoring.archetype_probabilities ?? {})
+    .map(([name, probability]) => ({ name, probability }))
+    .sort((left, right) => right.probability - left.probability || left.name.localeCompare(right.name));
+}
+
+const integrityFlagDescriptions: Record<string, string> = {
+  missing_required_streams: "Missing required telemetry streams.",
+  unsupported_ai_provider: "Used an AI provider outside the allowed list.",
+  unsupported_site_visited: "Visited a site outside the allowed list.",
+  unmanaged_tool_detected: "Detected unmanaged tool usage.",
+  tamper_signal_detected: "Detected potential tamper signals.",
+  sequence_gap_detected: "Detected event sequence gaps in one or more streams.",
+  telemetry_heartbeat_missing: "Desktop telemetry heartbeat is missing.",
+  suspicious_bulk_paste: "Detected unusually large pasted content.",
+  excessive_focus_switching: "Detected excessive app focus switching.",
+  excessive_idle_time: "Detected excessive idle time during session.",
+  unmanaged_browser_detected: "Detected unmanaged browser usage."
+};
+
+function humanizeFlag(flag: string): string {
+  return flag
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function buildIntegrityFlagLabels(scoring: SessionScoringPayload | null): string[] {
+  if (!scoring) {
+    return [];
+  }
+
+  return scoring.integrity.flags.map((flag) => `${integrityFlagDescriptions[flag] ?? humanizeFlag(flag)} (${flag})`);
 }
 
 export function eventCount(eventsResponse: SessionEventsResponse | null): number {

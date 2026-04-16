@@ -129,6 +129,7 @@ async function setupLocalApps(t: test.TestContext) {
     manifestsFile: path.join(dataRoot, "control-plane", "manifests.json"),
     sessionsFile: path.join(dataRoot, "control-plane", "sessions.json"),
     scoringsDir: path.join(dataRoot, "control-plane", "scorings"),
+    reviewDecisionsDir: path.join(dataRoot, "control-plane", "review-decisions"),
     ingestionSessionsDir: path.join(dataRoot, "ingestion", "sessions"),
     fixturePath: path.join(repoRoot, "fixtures", "sample-session.json")
   };

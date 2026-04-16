@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { z } from "zod";
 import {
   EventEnvelopeSchema,
   LocalRuntimeConfigSchema,
@@ -10,12 +11,14 @@ import {
   SessionDetailSchema,
   SessionScoringPayloadSchema,
   SessionStatusSchema,
+  ReviewerDecisionSchema,
   type EventEnvelope,
   type SessionBootstrap,
   type SessionManifest,
   type SessionDetail,
   type SessionScoringPayload,
-  type SessionSummary
+  type SessionSummary,
+  type ReviewerDecision
 } from "@assessment-platform/contracts";
 import { resolveControlPlaneRuntime, type ControlPlaneRuntime } from "./runtime";
 
@@ -120,17 +123,31 @@ const defaultManifests = [
 const readJson = async <T>(filePath: string): Promise<T> => JSON.parse(await readFile(filePath, "utf8")) as T;
 const writeJson = async (filePath: string, value: unknown) => writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safeSessionId(sessionId: string): string {
+  if (!UUID_PATTERN.test(sessionId)) {
+    throw new Error("Invalid session ID format.");
+  }
+  return sessionId;
+}
+
 function scoringFilePath(runtime: ControlPlaneRuntime, sessionId: string): string {
-  return path.join(runtime.scoringsDir, `${sessionId}.json`);
+  return path.join(runtime.scoringsDir, `${safeSessionId(sessionId)}.json`);
+}
+
+function reviewDecisionFilePath(runtime: ControlPlaneRuntime, sessionId: string): string {
+  return path.join(runtime.reviewDecisionsDir, `${safeSessionId(sessionId)}.json`);
 }
 
 function sessionEventsPath(runtime: ControlPlaneRuntime, sessionId: string): string {
-  return path.join(runtime.ingestionSessionsDir, `${sessionId}.ndjson`);
+  return path.join(runtime.ingestionSessionsDir, `${safeSessionId(sessionId)}.ndjson`);
 }
 
 async function ensureStorage(runtime: ControlPlaneRuntime): Promise<void> {
   await mkdir(runtime.storageDir, { recursive: true });
   await mkdir(runtime.scoringsDir, { recursive: true });
+  await mkdir(runtime.reviewDecisionsDir, { recursive: true });
   try {
     const storedManifests = await readJson<typeof defaultManifests>(runtime.manifestsFile);
     const nextManifests = [...storedManifests];
@@ -241,6 +258,18 @@ async function readScoring(runtime: ControlPlaneRuntime, sessionId: string): Pro
 async function tryReadScoring(runtime: ControlPlaneRuntime, sessionId: string): Promise<SessionScoringPayload | null> {
   try {
     return SessionScoringPayloadSchema.parse(await readScoring(runtime, sessionId));
+  } catch {
+    return null;
+  }
+}
+
+async function persistReviewDecision(runtime: ControlPlaneRuntime, decision: ReviewerDecision): Promise<void> {
+  await writeJson(reviewDecisionFilePath(runtime, decision.session_id), decision);
+}
+
+async function tryReadReviewDecision(runtime: ControlPlaneRuntime, sessionId: string): Promise<ReviewerDecision | null> {
+  try {
+    return ReviewerDecisionSchema.parse(await readJson(reviewDecisionFilePath(runtime, sessionId)));
   } catch {
     return null;
   }
@@ -528,6 +557,40 @@ export async function buildControlPlaneApp(
       return reply.status(result.error.statusCode).send(result.error.body);
     }
     return result;
+  });
+
+  app.get("/api/sessions/:sessionId/decision", async (request, reply) => {
+    const sessionId = (request.params as { sessionId: string }).sessionId;
+    const sessions = await loadSessions(runtime);
+    if (!sessions.some((item) => item.id === sessionId)) {
+      return reply.status(404).send({ error: "Session not found." });
+    }
+    const decision = await tryReadReviewDecision(runtime, sessionId);
+    if (!decision) {
+      return reply.status(404).send({ error: "No reviewer decision recorded for this session." });
+    }
+    return decision;
+  });
+
+  app.post("/api/sessions/:sessionId/decision", async (request, reply) => {
+    const sessionId = (request.params as { sessionId: string }).sessionId;
+    const sessions = await loadSessions(runtime);
+    if (!sessions.some((item) => item.id === sessionId)) {
+      return reply.status(404).send({ error: "Session not found." });
+    }
+    const bodySchema = ReviewerDecisionSchema.pick({ decision: true }).extend({ note: z.string().optional() });
+    const bodyResult = bodySchema.safeParse(request.body);
+    if (!bodyResult.success) {
+      return reply.status(400).send({ error: "Invalid request body.", detail: bodyResult.error.message });
+    }
+    const decision = ReviewerDecisionSchema.parse({
+      session_id: sessionId,
+      decision: bodyResult.data.decision,
+      note: bodyResult.data.note,
+      decided_at: new Date().toISOString()
+    });
+    await persistReviewDecision(runtime, decision);
+    return decision;
   });
 
   app.post("/api/demo/replay-fixture", async (request, reply) => {

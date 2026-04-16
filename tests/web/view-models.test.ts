@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildArchetypeProbabilityEntries,
   buildCompletenessSummary,
   buildSourceMix,
   buildTimelineEntries,
   eventCount,
+  formatReviewerDecision,
   resolvePreferredSessionId,
   topFeatureLabels
 } from "../../apps/reviewer-web/src/view-model";
@@ -84,6 +86,7 @@ test("reviewer view models map scoring and events into renderable content", () =
   const features = topFeatureLabels({
     session_id: "session-123",
     model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic",
     haci_score: 50,
     haci_band: "medium",
     predicted_archetype: "Structured Collaborator",
@@ -122,6 +125,62 @@ test("reviewer view models map scoring and events into renderable content", () =
   });
 
   assert.deepEqual(features, ["typing_vs_paste_ratio (0.250)", "max_paste_length (-0.100)"]);
+});
+
+test("buildArchetypeProbabilityEntries returns ranked entries as percentages", () => {
+  const entries = buildArchetypeProbabilityEntries({
+    session_id: "session-123",
+    model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic",
+    haci_score: 50,
+    haci_band: "medium",
+    predicted_archetype: "Exploratory Learner",
+    archetype_probabilities: {
+      "Independent Solver": 0.1,
+      "Structured Collaborator": 0.2,
+      "Exploratory Learner": 0.5,
+      "Blind Copier": 0.05,
+      "Iterative Debugger": 0.05,
+      "AI-Dependent Constructor": 0.05,
+      "Prompt Engineer Solver": 0.05
+    },
+    confidence: 0.5,
+    top_features: [],
+    integrity: {
+      verdict: "clean",
+      flags: [],
+      required_streams_present: ["desktop", "ide"],
+      missing_streams: [],
+      notes: []
+    },
+    policy_recommendation: "auto-advance",
+    review_required: false,
+    feature_vector: {
+      session_id: "session-123",
+      extraction_version: "0.1.0",
+      generated_at: "2026-04-12T09:10:00Z",
+      signal_values: {},
+      signals: [],
+      completeness: "complete",
+      invalidation_reasons: []
+    }
+  });
+
+  assert.equal(entries.length, 7);
+  assert.equal(entries[0].name, "Exploratory Learner");
+  assert.equal(entries[0].probability, 0.5);
+  assert.equal(entries[1].name, "Structured Collaborator");
+  assert.equal(entries[1].probability, 0.2);
+  assert.equal(entries[2].name, "Independent Solver");
+  assert.equal(entries[2].probability, 0.1);
+
+  assert.equal(buildArchetypeProbabilityEntries(null).length, 0);
+});
+
+test("formatReviewerDecision formats decision values for display", () => {
+  assert.equal(formatReviewerDecision("approve"), "Approve");
+  assert.equal(formatReviewerDecision("reject"), "Reject");
+  assert.equal(formatReviewerDecision("needs_followup"), "Needs Follow-up");
 });
 
 test("reviewer completeness helpers support invalid sessions and direct session selection", () => {

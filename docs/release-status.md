@@ -25,6 +25,8 @@ What is already real:
 - local 51-signal extraction, integrity, HACI, and archetype outputs
 - one-command and background local stack startup
 - GitHub publication of the current local-v1 repo
+- dual-mode archetype scoring: heuristic (default) and trained-model (XGBoost) with safe fallback
+- `/health` endpoint now reports active scoring mode, model version, and trained-model artifacts status
 
 ## Latest Clean Baselines
 
