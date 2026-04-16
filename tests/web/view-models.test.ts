@@ -6,6 +6,7 @@ import {
   buildSourceMix,
   buildTimelineEntries,
   eventCount,
+  formatReviewerDecision,
   resolvePreferredSessionId,
   topFeatureLabels
 } from "../../apps/reviewer-web/src/view-model";
@@ -172,6 +173,12 @@ test("buildArchetypeProbabilityEntries returns ranked entries as percentages", (
   assert.equal(entries[2].probability, 0.1);
 
   assert.equal(buildArchetypeProbabilityEntries(null).length, 0);
+});
+
+test("formatReviewerDecision formats decision values for display", () => {
+  assert.equal(formatReviewerDecision("approve"), "Approve");
+  assert.equal(formatReviewerDecision("reject"), "Reject");
+  assert.equal(formatReviewerDecision("needs_followup"), "Needs Follow-up");
 });
 
 test("reviewer completeness helpers support invalid sessions and direct session selection", () => {

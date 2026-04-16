@@ -16,6 +16,7 @@ import {
   buildIntegrityFlagLabels,
   buildTimelineEntries,
   eventCount,
+  formatReviewerDecision,
   resolvePreferredSessionId,
   topFeatureLabels
 } from "./view-model";
@@ -258,7 +259,7 @@ export function App() {
               <h2>Reviewer Decision</h2>
               {decision ? (
                 <p style={{ margin: "0 0 12px" }}>
-                  Current decision: <strong>{decision.decision === "needs_followup" ? "Needs Follow-up" : decision.decision.charAt(0).toUpperCase() + decision.decision.slice(1)}</strong>
+                  Current decision: <strong>{formatReviewerDecision(decision.decision)}</strong>
                   {" "}(recorded {new Date(decision.decided_at).toLocaleString()})
                 </p>
               ) : (

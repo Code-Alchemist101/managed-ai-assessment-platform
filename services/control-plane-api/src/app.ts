@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { z } from "zod";
 import {
   EventEnvelopeSchema,
   LocalRuntimeConfigSchema,
@@ -122,16 +123,25 @@ const defaultManifests = [
 const readJson = async <T>(filePath: string): Promise<T> => JSON.parse(await readFile(filePath, "utf8")) as T;
 const writeJson = async (filePath: string, value: unknown) => writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safeSessionId(sessionId: string): string {
+  if (!UUID_PATTERN.test(sessionId)) {
+    throw new Error("Invalid session ID format.");
+  }
+  return sessionId;
+}
+
 function scoringFilePath(runtime: ControlPlaneRuntime, sessionId: string): string {
-  return path.join(runtime.scoringsDir, `${sessionId}.json`);
+  return path.join(runtime.scoringsDir, `${safeSessionId(sessionId)}.json`);
 }
 
 function reviewDecisionFilePath(runtime: ControlPlaneRuntime, sessionId: string): string {
-  return path.join(runtime.reviewDecisionsDir, `${sessionId}.json`);
+  return path.join(runtime.reviewDecisionsDir, `${safeSessionId(sessionId)}.json`);
 }
 
 function sessionEventsPath(runtime: ControlPlaneRuntime, sessionId: string): string {
-  return path.join(runtime.ingestionSessionsDir, `${sessionId}.ndjson`);
+  return path.join(runtime.ingestionSessionsDir, `${safeSessionId(sessionId)}.ndjson`);
 }
 
 async function ensureStorage(runtime: ControlPlaneRuntime): Promise<void> {
@@ -568,11 +578,18 @@ export async function buildControlPlaneApp(
     if (!sessions.some((item) => item.id === sessionId)) {
       return reply.status(404).send({ error: "Session not found." });
     }
-    const body = request.body as { decision?: string; note?: string };
+    const bodySchema = z.object({
+      decision: ReviewerDecisionSchema.shape.decision,
+      note: z.string().optional()
+    });
+    const bodyResult = bodySchema.safeParse(request.body);
+    if (!bodyResult.success) {
+      return reply.status(400).send({ error: "Invalid request body.", detail: bodyResult.error.message });
+    }
     const decision = ReviewerDecisionSchema.parse({
       session_id: sessionId,
-      decision: body?.decision,
-      note: body?.note,
+      decision: bodyResult.data.decision,
+      note: bodyResult.data.note,
       decided_at: new Date().toISOString()
     });
     await persistReviewDecision(runtime, decision);
