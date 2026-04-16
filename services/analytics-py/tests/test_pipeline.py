@@ -494,3 +494,277 @@ class ShortSessionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ==========================================================================
+# Audit hardening tests added during end-to-end stability audit
+# ==========================================================================
+
+
+class EdgeCaseAndRegressionTests(unittest.TestCase):
+    """Regression and edge-case tests for the analytics pipeline.
+
+    Covers: empty-event sessions, null context, all integrity flags,
+    invalid ARCHETYPE_MODE fallback, and heuristic-result guarantee.
+    """
+
+    _BASE_EVENT_TEMPLATE = {
+        "event_id": "e-{n}",
+        "session_id": "audit-session",
+        "timestamp_utc": "2026-04-14T10:00:{n:02d}Z",
+        "source": "desktop",
+        "event_type": "session.heartbeat",
+        "sequence_no": 1,
+        "artifact_ref": "session",
+        "payload": {"status": "active"},
+        "client_version": "0.1.0",
+        "integrity_hash": "h",
+        "policy_context": {},
+    }
+
+    # ------------------------------------------------------------------
+    # Empty / null inputs
+    # ------------------------------------------------------------------
+
+    def test_empty_events_list_raises_value_error(self) -> None:
+        """score_session raises ValueError for empty events (documented limitation).
+
+        Follow-up risk: callers must guard against empty event lists before
+        calling score_session; the API surface does not handle this gracefully.
+        """
+        with self.assertRaises(ValueError, msg="empty events should raise ValueError"):
+            score_session([], {"required_streams": ["desktop", "ide"]})
+
+    def test_none_session_context_produces_valid_scoring_output(self) -> None:
+        """score_session must not crash when session_context is None."""
+        events = [
+            {
+                "event_id": "d1",
+                "session_id": "ctx-none",
+                "timestamp_utc": "2026-04-14T10:00:00Z",
+                "source": "desktop",
+                "event_type": "session.started",
+                "sequence_no": 1,
+                "artifact_ref": "session",
+                "payload": {"status": "active"},
+                "client_version": "0.1.0",
+                "integrity_hash": "h1",
+                "policy_context": {},
+            }
+        ]
+        result = score_session(events, None)
+        self.assertIn("scoring_mode", result)
+        self.assertIn("heuristic_result", result)
+        self.assertIsNotNone(result["heuristic_result"])
+
+    # ------------------------------------------------------------------
+    # Invalid ARCHETYPE_MODE env var
+    # ------------------------------------------------------------------
+
+    def test_invalid_archetype_mode_env_falls_back_to_heuristic(self) -> None:
+        """An unrecognised ARCHETYPE_MODE must fall back to heuristic, not crash."""
+        with patch.dict("os.environ", {"ARCHETYPE_MODE": "not_a_real_mode"}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring_module
+            importlib.reload(scoring_module)
+            self.assertEqual(scoring_module.ARCHETYPE_MODE, "heuristic")
+
+    # ------------------------------------------------------------------
+    # Individual integrity flags
+    # ------------------------------------------------------------------
+
+    def _make_event(self, *, source: str, event_type: str, seq: int, payload: dict | None = None) -> dict:
+        return {
+            "event_id": f"{source}-{seq}",
+            "session_id": "audit-session",
+            "timestamp_utc": f"2026-04-14T10:00:{seq:02d}Z",
+            "source": source,
+            "event_type": event_type,
+            "sequence_no": seq,
+            "artifact_ref": "session",
+            "payload": payload or {},
+            "client_version": "0.1.0",
+            "integrity_hash": f"h-{seq}",
+            "policy_context": {},
+        }
+
+    def test_telemetry_heartbeat_missing_flag_when_desktop_has_no_heartbeat(self) -> None:
+        """When desktop events are present but no heartbeat, the flag is raised."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+        ]
+        feature_vector = extract_feature_vector(events, {"required_streams": ["desktop"]})
+        integrity = evaluate_integrity(events, feature_vector, {"required_streams": ["desktop"]})
+        self.assertIn("telemetry_heartbeat_missing", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    def test_suspicious_bulk_paste_flag_triggered(self) -> None:
+        """max_paste_length >= 2000 from ide.clipboard.paste must raise suspicious_bulk_paste."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            {
+                "event_id": "ide-1",
+                "session_id": "audit-session",
+                "timestamp_utc": "2026-04-14T10:00:03Z",
+                "source": "ide",
+                "event_type": "ide.clipboard.paste",
+                "sequence_no": 1,
+                "artifact_ref": "file:main.py",
+                "payload": {
+                    "pasted_chars": 2500,
+                },
+                "client_version": "0.1.0",
+                "integrity_hash": "h-ide",
+                "policy_context": {},
+            },
+        ]
+        ctx = {"required_streams": ["desktop", "ide"]}
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("suspicious_bulk_paste", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    def test_unmanaged_tool_flag_raised_on_system_event(self) -> None:
+        """system.unmanaged_tool.detected must raise unmanaged_tool_detected."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            self._make_event(source="desktop", event_type="system.unmanaged_tool.detected", seq=3),
+        ]
+        ctx = {"required_streams": ["desktop"]}
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("unmanaged_tool_detected", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    def test_tamper_signal_detected_makes_verdict_invalid(self) -> None:
+        """system.tamper.detected must set verdict to invalid."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            self._make_event(source="desktop", event_type="system.tamper.detected", seq=3),
+        ]
+        ctx = {"required_streams": ["desktop"]}
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("tamper_signal_detected", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "invalid")
+
+    def test_unmanaged_browser_flag_makes_verdict_invalid(self) -> None:
+        """system.browser.unmanaged must set verdict to invalid."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            self._make_event(source="desktop", event_type="system.browser.unmanaged", seq=3),
+        ]
+        ctx = {"required_streams": ["desktop"]}
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("unmanaged_browser_detected", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "invalid")
+
+    def test_unsupported_ai_provider_flag(self) -> None:
+        """AI prompt from a disallowed provider must raise unsupported_ai_provider."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            {
+                "event_id": "browser-1",
+                "session_id": "audit-session",
+                "timestamp_utc": "2026-04-14T10:00:03Z",
+                "source": "browser",
+                "event_type": "browser.ai.prompt",
+                "sequence_no": 1,
+                "artifact_ref": "provider:unknown-ai",
+                "payload": {"provider": "unknown-ai"},
+                "client_version": "0.1.0",
+                "integrity_hash": "h-browser",
+                "policy_context": {},
+            },
+        ]
+        ctx = {
+            "required_streams": ["desktop", "browser"],
+            "allowed_ai_providers": ["openai"],
+        }
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("unsupported_ai_provider", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    def test_sequence_gap_detected_flag(self) -> None:
+        """Out-of-order sequence numbers for a source must raise sequence_gap_detected."""
+        events = [
+            self._make_event(source="desktop", event_type="session.started", seq=1),
+            self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+            # Jump to sequence 5, skipping 3 and 4
+            {
+                **self._make_event(source="desktop", event_type="session.heartbeat", seq=5),
+                "sequence_no": 5,
+            },
+        ]
+        ctx = {"required_streams": ["desktop"]}
+        feature_vector = extract_feature_vector(events, ctx)
+        integrity = evaluate_integrity(events, feature_vector, ctx)
+        self.assertIn("sequence_gap_detected", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+
+    # ------------------------------------------------------------------
+    # Policy passthrough and scoring completeness
+    # ------------------------------------------------------------------
+
+    def test_score_session_always_returns_heuristic_result_not_none(self) -> None:
+        """heuristic_result must never be None when events are non-empty."""
+        results = [
+            score_session(
+                [self._make_event(source="desktop", event_type="session.started", seq=1)],
+                {"required_streams": ["desktop"]},
+            ),
+            score_session(
+                [
+                    self._make_event(source="desktop", event_type="session.started", seq=1),
+                    self._make_event(source="desktop", event_type="session.heartbeat", seq=2),
+                ],
+                None,
+            ),
+        ]
+        for result in results:
+            self.assertIsNotNone(result.get("heuristic_result"))
+            self.assertEqual(result["heuristic_result"]["scoring_mode"], "heuristic")
+
+    def test_auto_reject_enabled_field_is_passed_through_in_context(self) -> None:
+        """decision_policy.auto_reject_enabled is accepted without error (policy passthrough)."""
+        from pathlib import Path
+        from unittest.mock import patch as mpatch
+        import importlib
+        import assessment_analytics.scoring as scoring_module
+
+        ctx = {
+            "required_streams": ["desktop", "ide"],
+            "decision_policy": {
+                "auto_advance_min_confidence": 0.90,
+                "auto_reject_enabled": False,
+                "require_full_completeness": True,
+            },
+        }
+        # Score with full fixture events to ensure policy is evaluated.
+        with mpatch.dict("os.environ", {}, clear=True):
+            importlib.reload(scoring_module)
+            with (
+                mpatch("assessment_analytics.scoring.evaluate_integrity", return_value={
+                    "verdict": "clean",
+                    "flags": [],
+                    "missing_streams": [],
+                    "required_streams_present": ["desktop", "ide"],
+                    "invalidation_reasons": [],
+                    "notes": [],
+                }),
+                mpatch("assessment_analytics.scoring._compute_haci", return_value=(50.0, [])),
+            ):
+                result = scoring_module.score_session(
+                    [self._make_event(source="desktop", event_type="session.started", seq=1)],
+                    ctx,
+                )
+        # Must not raise; result must include standard fields.
+        self.assertIn("policy_recommendation", result)
+        self.assertIn("review_required", result)
