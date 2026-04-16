@@ -19,6 +19,8 @@ export type CompletenessSummary = {
   sourceCounts: SourceMixEntry[];
 };
 
+export type ArchetypeProbabilityEntry = { name: string; probability: number };
+
 function humanizeEventType(eventType: string): string {
   return eventType
     .replace(/\./g, " ")
@@ -37,6 +39,16 @@ export function buildTimelineEntries(eventsResponse: SessionEventsResponse | nul
 
 export function topFeatureLabels(scoring: SessionScoringPayload | null): string[] {
   return scoring?.top_features.map((feature) => `${feature.name} (${feature.contribution.toFixed(3)})`) ?? [];
+}
+
+export function buildArchetypeProbabilityEntries(scoring: SessionScoringPayload | null): ArchetypeProbabilityEntry[] {
+  if (!scoring) {
+    return [];
+  }
+
+  return Object.entries(scoring.archetype_probabilities ?? {})
+    .map(([name, probability]) => ({ name, probability }))
+    .sort((left, right) => right.probability - left.probability || left.name.localeCompare(right.name));
 }
 
 const integrityFlagDescriptions: Record<string, string> = {
