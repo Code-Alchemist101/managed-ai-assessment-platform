@@ -24,6 +24,15 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(15,23,42,0.08)"
 };
 
+function buildDuplicateSafeItems(values: string[]): Array<{ key: string; value: string }> {
+  const seen = new Map<string, number>();
+  return values.map((value) => {
+    const occurrence = (seen.get(value) ?? 0) + 1;
+    seen.set(value, occurrence);
+    return { key: `${value}__${occurrence}`, value };
+  });
+}
+
 export function App() {
   const [runtime, setRuntime] = useState<LocalRuntimeConfig | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
@@ -123,6 +132,11 @@ export function App() {
   const timeline = useMemo(() => buildTimelineEntries(events), [events]);
   const features = useMemo(() => topFeatureLabels(scoring), [scoring]);
   const integrityFlags = useMemo(() => buildIntegrityFlagLabels(scoring), [scoring]);
+  const integrityFlagItems = useMemo(() => buildDuplicateSafeItems(integrityFlags), [integrityFlags]);
+  const integrityNoteItems = useMemo(
+    () => buildDuplicateSafeItems(scoring?.integrity.notes ?? []),
+    [scoring]
+  );
   const totalEvents = useMemo(
     () => eventCount(events) || Object.values(selectedSession?.event_counts_by_source ?? {}).reduce((sum, count) => sum + count, 0),
     [events, selectedSession]
@@ -270,15 +284,15 @@ export function App() {
                 ) : integrityFlags.length ? (
                   <>
                     <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
-                      {integrityFlags.map((flag, index) => (
-                        <li key={`${index}-${flag}`}>{flag}</li>
+                      {integrityFlagItems.map((item) => (
+                        <li key={item.key}>{item.value}</li>
                       ))}
                     </ul>
                     <p style={{ margin: "0 0 8px" }}>Notes:</p>
-                    {scoring.integrity.notes.length ? (
+                    {integrityNoteItems.length ? (
                       <ul style={{ paddingLeft: 18, margin: 0 }}>
-                        {scoring.integrity.notes.map((note, index) => (
-                          <li key={`${index}-${note}`}>{note}</li>
+                        {integrityNoteItems.map((item) => (
+                          <li key={item.key}>{item.value}</li>
                         ))}
                       </ul>
                     ) : (
