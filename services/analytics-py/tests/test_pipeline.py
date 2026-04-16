@@ -34,7 +34,7 @@ class AnalyticsPipelineTests(unittest.TestCase):
     # ------------------------------------------------------------------
     # Helper used by the decision-policy threshold tests.
     # ------------------------------------------------------------------
-    _MOCK_CLEAN_INTEGRITY: dict = {
+    MOCK_CLEAN_INTEGRITY: dict = {
         "verdict": "clean",
         "flags": [],
         "missing_streams": [],
@@ -46,13 +46,15 @@ class AnalyticsPipelineTests(unittest.TestCase):
 
     def _score_with_clean_integrity_high_haci(self, session_context: dict) -> dict:
         """Reload scoring in heuristic mode, mock clean integrity and high HACI, then score."""
+        # importlib.reload is used inside the method so that each call re-evaluates
+        # ARCHETYPE_MODE from the environment, resetting any state left by previous tests.
         import importlib
         import assessment_analytics.scoring as scoring
 
         with patch.dict("os.environ", {}, clear=True):
             importlib.reload(scoring)
             with (
-                patch("assessment_analytics.scoring.evaluate_integrity", return_value=self._MOCK_CLEAN_INTEGRITY),
+                patch("assessment_analytics.scoring.evaluate_integrity", return_value=self.MOCK_CLEAN_INTEGRITY),
                 patch("assessment_analytics.scoring._compute_haci", return_value=(70.0, [])),
             ):
                 return scoring.score_session(self.events, session_context)
