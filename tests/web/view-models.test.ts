@@ -86,6 +86,7 @@ test("reviewer view models map scoring and events into renderable content", () =
   const features = topFeatureLabels({
     session_id: "session-123",
     model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic",
     haci_score: 50,
     haci_band: "medium",
     predicted_archetype: "Structured Collaborator",
@@ -130,6 +131,7 @@ test("buildArchetypeProbabilityEntries returns ranked entries as percentages", (
   const entries = buildArchetypeProbabilityEntries({
     session_id: "session-123",
     model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic",
     haci_score: 50,
     haci_band: "medium",
     predicted_archetype: "Exploratory Learner",

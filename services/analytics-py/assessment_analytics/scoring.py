@@ -14,7 +14,18 @@ from .integrity import evaluate_integrity
 
 
 ARTIFACTS_DIR = Path(__file__).resolve().parents[1] / "artifacts"
-ARCHETYPE_MODE = os.getenv("ARCHETYPE_MODE", "heuristic").strip().lower()
+
+_ALLOWED_ARCHETYPE_MODES = {"heuristic", "trained_model"}
+
+
+def _get_archetype_mode() -> str:
+    configured_mode = os.getenv("ARCHETYPE_MODE", "heuristic").strip().lower()
+    if configured_mode in _ALLOWED_ARCHETYPE_MODES:
+        return configured_mode
+    return "heuristic"
+
+
+ARCHETYPE_MODE = _get_archetype_mode()
 
 TRAINED_MODEL_VERSION = "xgboost-research-v1"
 
@@ -125,8 +136,13 @@ def _load_model_bundle() -> dict[str, Any] | None:
     if _MODEL_BUNDLE is not None:
         return _MODEL_BUNDLE
 
+    # If a previous load failed, retry only if the primary artifact now exists on
+    # disk (e.g. after a delayed volume mount).  This avoids permanently disabling
+    # trained-model scoring due to a transient I/O error.
     if _MODEL_LOAD_ERROR is not None:
-        return None
+        if not (ARTIFACTS_DIR / "archetype_xgboost.pkl").exists():
+            return None
+        _MODEL_LOAD_ERROR = None
 
     try:
         model_path = ARTIFACTS_DIR / "archetype_xgboost.pkl"

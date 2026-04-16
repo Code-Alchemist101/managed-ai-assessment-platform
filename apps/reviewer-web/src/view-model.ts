@@ -1,4 +1,4 @@
-import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
+import type { LocalRuntimeConfig, ReviewerDecisionValue, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
 import type { SessionEventsResponse } from "./api";
 
 export type TimelineEntry = {
@@ -21,7 +21,7 @@ export type CompletenessSummary = {
 
 export type ArchetypeProbabilityEntry = { name: string; probability: number };
 
-export function formatReviewerDecision(decision: string): string {
+export function formatReviewerDecision(decision: ReviewerDecisionValue): string {
   if (decision === "needs_followup") {
     return "Needs Follow-up";
   }
