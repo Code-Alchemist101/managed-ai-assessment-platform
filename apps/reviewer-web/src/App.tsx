@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
+import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload, ReviewerDecision, ReviewerDecisionValue } from "@assessment-platform/contracts";
 import {
+  loadDecision,
   loadRuntimeConfig,
   loadScoringIfPresent,
   loadSessionDetail,
   loadSessionEvents,
   loadSessions,
+  saveDecision,
   type SessionEventsResponse
 } from "./api";
 import {
@@ -14,6 +16,7 @@ import {
   buildIntegrityFlagLabels,
   buildTimelineEntries,
   eventCount,
+  formatReviewerDecision,
   resolvePreferredSessionId,
   topFeatureLabels
 } from "./view-model";
@@ -44,6 +47,9 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [decision, setDecision] = useState<ReviewerDecision | null>(null);
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,10 +99,11 @@ export function App() {
       try {
         setSessionLoading(true);
         setError(null);
-        const [sessionDetail, sessionEvents, scoringPayload] = await Promise.all([
+        const [sessionDetail, sessionEvents, scoringPayload, existingDecision] = await Promise.all([
           loadSessionDetail(selectedSessionId),
           loadSessionEvents(selectedSessionId),
-          loadScoringIfPresent(selectedSessionId)
+          loadScoringIfPresent(selectedSessionId),
+          loadDecision(selectedSessionId)
         ]);
         if (cancelled) {
           return;
@@ -105,6 +112,8 @@ export function App() {
         setSelectedSession(sessionDetail);
         setEvents(sessionEvents);
         setScoring(scoringPayload);
+        setDecision(existingDecision);
+        setDecisionError(null);
         setSessions((currentSessions) =>
           currentSessions.map((session) => (session.id === sessionDetail.id ? sessionDetail : session))
         );
@@ -147,6 +156,22 @@ export function App() {
 
   const integrityVerdict = scoring?.integrity.verdict ?? selectedSession?.integrity_verdict ?? "pending";
   const policyRecommendation = scoring?.policy_recommendation ?? selectedSession?.policy_recommendation ?? "pending";
+
+  const handleDecision = async (value: ReviewerDecisionValue) => {
+    if (!selectedSessionId || decisionSubmitting) {
+      return;
+    }
+    setDecisionSubmitting(true);
+    setDecisionError(null);
+    try {
+      const saved = await saveDecision(selectedSessionId, value);
+      setDecision(saved);
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : "Failed to save decision.");
+    } finally {
+      setDecisionSubmitting(false);
+    }
+  };
 
   return (
     <main
@@ -228,6 +253,37 @@ export function App() {
                   <p style={{ margin: 0 }}>No archetype probability distribution available.</p>
                 )}
               </div>
+            </section>
+
+            <section style={cardStyle}>
+              <h2>Reviewer Decision</h2>
+              {decision ? (
+                <p style={{ margin: "0 0 12px" }}>
+                  Current decision: <strong>{formatReviewerDecision(decision.decision)}</strong>
+                  {" "}(recorded {new Date(decision.decided_at).toLocaleString()})
+                </p>
+              ) : (
+                <p style={{ margin: "0 0 12px" }}>No decision recorded yet.</p>
+              )}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {(
+                  [
+                    { value: "approve", label: "Approve", background: "#16a34a" },
+                    { value: "reject", label: "Reject", background: "#dc2626" },
+                    { value: "needs_followup", label: "Needs Follow-up", background: "#d97706" }
+                  ] as const
+                ).map(({ value, label, background }) => (
+                  <button
+                    key={value}
+                    disabled={decisionSubmitting}
+                    onClick={() => void handleDecision(value)}
+                    style={{ padding: "8px 20px", borderRadius: 10, border: "none", background, color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {decisionError ? <p style={{ margin: "8px 0 0", color: "#dc2626" }}>{decisionError}</p> : null}
             </section>
 
             <section style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 16 }}>

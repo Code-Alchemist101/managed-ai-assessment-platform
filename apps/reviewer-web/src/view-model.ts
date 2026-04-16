@@ -21,6 +21,13 @@ export type CompletenessSummary = {
 
 export type ArchetypeProbabilityEntry = { name: string; probability: number };
 
+export function formatReviewerDecision(decision: string): string {
+  if (decision === "needs_followup") {
+    return "Needs Follow-up";
+  }
+  return decision.charAt(0).toUpperCase() + decision.slice(1);
+}
+
 function humanizeEventType(eventType: string): string {
   return eventType
     .replace(/\./g, " ")
