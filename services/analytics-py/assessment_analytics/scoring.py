@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 import math
+import os
+from pathlib import Path
 from typing import Any
+import pandas as pd
+
+import joblib
 
 from .catalog import ARCHETYPES, HACI_BOUNDS, HACI_WEIGHTS, MODEL_VERSION
 from .features import extract_feature_vector
 from .integrity import evaluate_integrity
+
+
+ARTIFACTS_DIR = Path(__file__).resolve().parents[1] / "artifacts"
+ARCHETYPE_MODE = os.getenv("ARCHETYPE_MODE", "heuristic").strip().lower()
+
+TRAINED_MODEL_VERSION = "xgboost-research-v1"
+
+_MODEL_BUNDLE: dict[str, Any] | None = None
+_MODEL_LOAD_ERROR: str | None = None
 
 
 def _normalize(value: float, lower: float, upper: float) -> float:
@@ -105,15 +119,88 @@ def _compute_haci(signal_values: dict[str, float]) -> tuple[float, list[dict[str
     return max(0.0, min(100.0, round(haci_score, 1))), top_features
 
 
+def _load_model_bundle() -> dict[str, Any] | None:
+    global _MODEL_BUNDLE, _MODEL_LOAD_ERROR
+
+    if _MODEL_BUNDLE is not None:
+        return _MODEL_BUNDLE
+
+    if _MODEL_LOAD_ERROR is not None:
+        return None
+
+    try:
+        model_path = ARTIFACTS_DIR / "archetype_xgboost.pkl"
+        scaler_path = ARTIFACTS_DIR / "feature_scaler.pkl"
+        encoder_path = ARTIFACTS_DIR / "label_encoder.pkl"
+        feature_names_path = ARTIFACTS_DIR / "feature_names.pkl"
+
+        _MODEL_BUNDLE = {
+            "model": joblib.load(model_path),
+            "scaler": joblib.load(scaler_path),
+            "label_encoder": joblib.load(encoder_path),
+            "feature_names": joblib.load(feature_names_path),
+        }
+        return _MODEL_BUNDLE
+    except Exception as exc:
+        _MODEL_LOAD_ERROR = str(exc)
+        return None
+
+
+def _predict_with_trained_model(signal_values: dict[str, float]) -> tuple[dict[str, float], str, float] | None:
+    bundle = _load_model_bundle()
+    if bundle is None:
+        return None
+
+    model = bundle["model"]
+    scaler = bundle["scaler"]
+    label_encoder = bundle["label_encoder"]
+    feature_names = bundle["feature_names"]
+
+    if not isinstance(feature_names, list) or not feature_names:
+        return None
+
+    ordered_values = [float(signal_values.get(name, 0.0)) for name in feature_names]
+
+    try:
+        input_df = pd.DataFrame([ordered_values], columns=feature_names)
+        scaled_values = scaler.transform(input_df)
+        probabilities_array = model.predict_proba(scaled_values)[0]
+        class_names = list(label_encoder.classes_)
+
+        probabilities = {
+            class_name: round(float(prob), 4)
+            for class_name, prob in zip(class_names, probabilities_array, strict=False)
+        }
+
+        predicted_archetype = max(probabilities, key=probabilities.get)
+        confidence = round(float(probabilities[predicted_archetype]), 4)
+        return probabilities, predicted_archetype, confidence
+    except Exception:
+        return None
+
+
 def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] | None = None) -> dict[str, Any]:
     feature_vector = extract_feature_vector(events, session_context=session_context)
     signal_values = feature_vector["signal_values"]
     integrity = evaluate_integrity(events, feature_vector, session_context=session_context)
 
-    archetype_scores = _bootstrap_archetype_scores(signal_values)
-    probabilities = _softmax(archetype_scores)
-    predicted_archetype = max(probabilities, key=probabilities.get)
-    confidence = round(probabilities[predicted_archetype], 4)
+    scoring_mode = "heuristic"
+    model_version = MODEL_VERSION
+
+    trained_result = None
+    if ARCHETYPE_MODE == "trained_model":
+        trained_result = _predict_with_trained_model(signal_values)
+
+    if trained_result is not None:
+        probabilities, predicted_archetype, confidence = trained_result
+        scoring_mode = "trained_model"
+        model_version = TRAINED_MODEL_VERSION
+    else:
+        archetype_scores = _bootstrap_archetype_scores(signal_values)
+        probabilities = {key: round(value, 4) for key, value in _softmax(archetype_scores).items()}
+        predicted_archetype = max(probabilities, key=probabilities.get)
+        confidence = round(float(probabilities[predicted_archetype]), 4)
+
     haci_score, top_features = _compute_haci(signal_values)
 
     if haci_score >= 70:
@@ -133,11 +220,12 @@ def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] 
 
     return {
         "session_id": feature_vector["session_id"],
-        "model_version": MODEL_VERSION,
+        "model_version": model_version,
+        "scoring_mode": scoring_mode,
         "haci_score": haci_score,
         "haci_band": haci_band,
         "predicted_archetype": predicted_archetype,
-        "archetype_probabilities": {key: round(value, 4) for key, value in probabilities.items()},
+        "archetype_probabilities": probabilities,
         "confidence": confidence,
         "top_features": top_features[:5],
         "integrity": integrity,
@@ -145,4 +233,3 @@ def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] 
         "review_required": review_required,
         "feature_vector": feature_vector,
     }
-

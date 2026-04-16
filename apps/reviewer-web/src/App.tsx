@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload } from "@assessment-platform/contracts";
+import type { LocalRuntimeConfig, SessionDetail, SessionScoringPayload, ReviewerDecision, ReviewerDecisionValue } from "@assessment-platform/contracts";
 import {
+  loadDecision,
   loadRuntimeConfig,
   loadScoringIfPresent,
   loadSessionDetail,
   loadSessionEvents,
   loadSessions,
+  saveDecision,
   type SessionEventsResponse
 } from "./api";
 import {
+  buildArchetypeProbabilityEntries,
   buildCompletenessSummary,
+  buildIntegrityFlagLabels,
   buildTimelineEntries,
   eventCount,
+  formatReviewerDecision,
   resolvePreferredSessionId,
   topFeatureLabels
 } from "./view-model";
@@ -23,6 +28,15 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(15,23,42,0.08)"
 };
 
+function buildDuplicateSafeItems(values: string[]): Array<{ key: string; value: string }> {
+  const seen = new Map<string, number>();
+  return values.map((value) => {
+    const occurrence = (seen.get(value) ?? 0) + 1;
+    seen.set(value, occurrence);
+    return { key: `${value}__${occurrence}`, value };
+  });
+}
+
 export function App() {
   const [runtime, setRuntime] = useState<LocalRuntimeConfig | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
@@ -33,6 +47,9 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [decision, setDecision] = useState<ReviewerDecision | null>(null);
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,10 +99,11 @@ export function App() {
       try {
         setSessionLoading(true);
         setError(null);
-        const [sessionDetail, sessionEvents, scoringPayload] = await Promise.all([
+        const [sessionDetail, sessionEvents, scoringPayload, existingDecision] = await Promise.all([
           loadSessionDetail(selectedSessionId),
           loadSessionEvents(selectedSessionId),
-          loadScoringIfPresent(selectedSessionId)
+          loadScoringIfPresent(selectedSessionId),
+          loadDecision(selectedSessionId)
         ]);
         if (cancelled) {
           return;
@@ -94,6 +112,8 @@ export function App() {
         setSelectedSession(sessionDetail);
         setEvents(sessionEvents);
         setScoring(scoringPayload);
+        setDecision(existingDecision);
+        setDecisionError(null);
         setSessions((currentSessions) =>
           currentSessions.map((session) => (session.id === sessionDetail.id ? sessionDetail : session))
         );
@@ -121,6 +141,13 @@ export function App() {
 
   const timeline = useMemo(() => buildTimelineEntries(events), [events]);
   const features = useMemo(() => topFeatureLabels(scoring), [scoring]);
+  const archetypeProbabilities = useMemo(() => buildArchetypeProbabilityEntries(scoring), [scoring]);
+  const integrityFlags = useMemo(() => buildIntegrityFlagLabels(scoring), [scoring]);
+  const integrityFlagItems = useMemo(() => buildDuplicateSafeItems(integrityFlags), [integrityFlags]);
+  const integrityNoteItems = useMemo(
+    () => buildDuplicateSafeItems(scoring?.integrity.notes ?? []),
+    [scoring]
+  );
   const totalEvents = useMemo(
     () => eventCount(events) || Object.values(selectedSession?.event_counts_by_source ?? {}).reduce((sum, count) => sum + count, 0),
     [events, selectedSession]
@@ -129,6 +156,22 @@ export function App() {
 
   const integrityVerdict = scoring?.integrity.verdict ?? selectedSession?.integrity_verdict ?? "pending";
   const policyRecommendation = scoring?.policy_recommendation ?? selectedSession?.policy_recommendation ?? "pending";
+
+  const handleDecision = async (value: ReviewerDecisionValue) => {
+    if (!selectedSessionId || decisionSubmitting) {
+      return;
+    }
+    setDecisionSubmitting(true);
+    setDecisionError(null);
+    try {
+      const saved = await saveDecision(selectedSessionId, value);
+      setDecision(saved);
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : "Failed to save decision.");
+    } finally {
+      setDecisionSubmitting(false);
+    }
+  };
 
   return (
     <main
@@ -193,6 +236,54 @@ export function App() {
                 <p style={{ fontSize: 28, margin: "8px 0" }}>{integrityVerdict}</p>
                 <p style={{ margin: 0 }}>Policy Recommendation: {policyRecommendation}</p>
               </div>
+              <div style={cardStyle}>
+                <h2>Scoring Provenance</h2>
+                <p style={{ margin: "0 0 8px" }}>Mode: {scoring?.scoring_mode ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Model: {scoring?.model_version ?? "pending"}</p>
+                <p style={{ margin: "0 0 8px" }}>Archetype certainty:</p>
+                {archetypeProbabilities.length ? (
+                  <ul style={{ paddingLeft: 18, margin: 0 }}>
+                    {archetypeProbabilities.map((item) => (
+                      <li key={item.name}>
+                        {item.name}: {(item.probability * 100).toFixed(1)}%
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ margin: 0 }}>No archetype probability distribution available.</p>
+                )}
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <h2>Reviewer Decision</h2>
+              {decision ? (
+                <p style={{ margin: "0 0 12px" }}>
+                  Current decision: <strong>{formatReviewerDecision(decision.decision)}</strong>
+                  {" "}(recorded {new Date(decision.decided_at).toLocaleString()})
+                </p>
+              ) : (
+                <p style={{ margin: "0 0 12px" }}>No decision recorded yet.</p>
+              )}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {(
+                  [
+                    { value: "approve", label: "Approve", background: "#16a34a" },
+                    { value: "reject", label: "Reject", background: "#dc2626" },
+                    { value: "needs_followup", label: "Needs Follow-up", background: "#d97706" }
+                  ] as const
+                ).map(({ value, label, background }) => (
+                  <button
+                    key={value}
+                    disabled={decisionSubmitting}
+                    onClick={() => void handleDecision(value)}
+                    style={{ padding: "8px 20px", borderRadius: 10, border: "none", background, color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {decisionError ? <p style={{ margin: "8px 0 0", color: "#dc2626" }}>{decisionError}</p> : null}
             </section>
 
             <section style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 16 }}>
@@ -260,6 +351,32 @@ export function App() {
                     ? completeness.sourceCounts.map((item) => `${item.source} (${item.count})`).join(", ")
                     : "None"}
                 </p>
+              </div>
+              <div style={cardStyle}>
+                <h2>Integrity Flags</h2>
+                {!scoring ? (
+                  <p style={{ margin: "0 0 8px" }}>Score this session to view integrity detail.</p>
+                ) : integrityFlags.length ? (
+                  <>
+                    <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
+                      {integrityFlagItems.map((item) => (
+                        <li key={item.key}>{item.value}</li>
+                      ))}
+                    </ul>
+                    <p style={{ margin: "0 0 8px" }}>Notes:</p>
+                    {integrityNoteItems.length ? (
+                      <ul style={{ paddingLeft: 18, margin: 0 }}>
+                        {integrityNoteItems.map((item) => (
+                          <li key={item.key}>{item.value}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p style={{ margin: 0 }}>None</p>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ margin: 0 }}>No integrity flags.</p>
+                )}
               </div>
             </section>
           </>
