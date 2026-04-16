@@ -578,10 +578,7 @@ export async function buildControlPlaneApp(
     if (!sessions.some((item) => item.id === sessionId)) {
       return reply.status(404).send({ error: "Session not found." });
     }
-    const bodySchema = z.object({
-      decision: ReviewerDecisionSchema.shape.decision,
-      note: z.string().optional()
-    });
+    const bodySchema = ReviewerDecisionSchema.pick({ decision: true }).extend({ note: z.string().optional() });
     const bodyResult = bodySchema.safeParse(request.body);
     if (!bodyResult.success) {
       return reply.status(400).send({ error: "Invalid request body.", detail: bodyResult.error.message });

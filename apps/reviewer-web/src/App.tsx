@@ -266,27 +266,22 @@ export function App() {
                 <p style={{ margin: "0 0 12px" }}>No decision recorded yet.</p>
               )}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  disabled={decisionSubmitting}
-                  onClick={() => void handleDecision("approve")}
-                  style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
-                >
-                  Approve
-                </button>
-                <button
-                  disabled={decisionSubmitting}
-                  onClick={() => void handleDecision("reject")}
-                  style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
-                >
-                  Reject
-                </button>
-                <button
-                  disabled={decisionSubmitting}
-                  onClick={() => void handleDecision("needs_followup")}
-                  style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#d97706", color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
-                >
-                  Needs Follow-up
-                </button>
+                {(
+                  [
+                    { value: "approve", label: "Approve", background: "#16a34a" },
+                    { value: "reject", label: "Reject", background: "#dc2626" },
+                    { value: "needs_followup", label: "Needs Follow-up", background: "#d97706" }
+                  ] as const
+                ).map(({ value, label, background }) => (
+                  <button
+                    key={value}
+                    disabled={decisionSubmitting}
+                    onClick={() => void handleDecision(value)}
+                    style={{ padding: "8px 20px", borderRadius: 10, border: "none", background, color: "#fff", fontWeight: 700, cursor: decisionSubmitting ? "not-allowed" : "pointer" }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
               {decisionError ? <p style={{ margin: "8px 0 0", color: "#dc2626" }}>{decisionError}</p> : null}
             </section>
