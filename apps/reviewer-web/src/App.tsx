@@ -234,7 +234,7 @@ export function App() {
                 {scoring ? (
                   <p style={{ margin: 0 }}>{confidenceLabel(scoring.scoring_mode)}: {(scoring.confidence * 100).toFixed(1)}%</p>
                 ) : (
-                  <p style={{ margin: 0 }}>Confidence: pending</p>
+                  <p style={{ margin: 0 }}>Score Strength / Model Confidence: pending</p>
                 )}
                 {scoring?.scoring_mode === "heuristic" ? (
                   <p style={{ margin: "4px 0 0", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
