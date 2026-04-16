@@ -252,9 +252,11 @@ def score_session(events: list[dict[str, Any]], session_context: dict[str, Any] 
 
     policy_recommendation = "human-review"
     review_required = True
+    decision_policy = (session_context or {}).get("decision_policy") or {}
+    auto_advance_min_confidence: float = float(decision_policy.get("auto_advance_min_confidence", 0.90))
     if integrity["verdict"] == "invalid":
         policy_recommendation = "invalid-session"
-    elif integrity["verdict"] == "clean" and confidence >= 0.90 and haci_score >= 65:
+    elif integrity["verdict"] == "clean" and confidence >= auto_advance_min_confidence and haci_score >= 65:
         policy_recommendation = "auto-advance"
         review_required = False
 

@@ -424,7 +424,8 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
         problem_statement: manifest.task_prompt,
         allowed_ai_providers: manifest.allowed_ai_providers,
         allowed_sites: manifest.allowed_sites,
-        required_streams: manifest.required_streams
+        required_streams: manifest.required_streams,
+        decision_policy: manifest.decision_policy
       },
       events
     })

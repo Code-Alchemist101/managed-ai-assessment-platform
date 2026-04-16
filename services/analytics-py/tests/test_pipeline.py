@@ -275,6 +275,102 @@ class AnalyticsPipelineTests(unittest.TestCase):
         self.assertEqual(result["scoring_mode"], "heuristic")
         self.assertEqual(result["model_version"], "bootstrap-centroid-v1")
 
+    def test_policy_default_threshold_applied_when_no_decision_policy(self) -> None:
+        """Default auto-advance threshold (0.90) is used when decision_policy is absent."""
+        with patch.dict("os.environ", {}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+
+            # Fixture heuristic confidence is well below 0.90 (~0.18). Mock integrity
+            # as "clean" and HACI >= 65 so that only the confidence gate matters.
+            mock_integrity = {
+                "verdict": "clean",
+                "flags": [],
+                "missing_streams": [],
+                "required_streams_present": ["desktop", "ide"],
+                "invalidation_reasons": [],
+                "haci_score": None,
+                "predicted_archetype": None,
+            }
+            with (
+                patch("assessment_analytics.scoring.evaluate_integrity", return_value=mock_integrity),
+                patch("assessment_analytics.scoring._compute_haci", return_value=(70.0, [])),
+            ):
+                result = scoring.score_session(self.events, self.session_context)
+
+        # Actual fixture heuristic confidence < 0.90 → default threshold not met → human-review
+        self.assertLess(result["confidence"], 0.90)
+        self.assertEqual(result["policy_recommendation"], "human-review")
+        self.assertTrue(result["review_required"])
+
+    def test_policy_override_lowers_auto_advance_threshold(self) -> None:
+        """When decision_policy.auto_advance_min_confidence is set lower, it replaces the default."""
+        with patch.dict("os.environ", {}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+
+            mock_integrity = {
+                "verdict": "clean",
+                "flags": [],
+                "missing_streams": [],
+                "required_streams_present": ["desktop", "ide"],
+                "invalidation_reasons": [],
+                "haci_score": None,
+                "predicted_archetype": None,
+            }
+            # Set threshold below the fixture heuristic confidence (~0.18) so auto-advance triggers.
+            context_with_policy = {
+                **self.session_context,
+                "decision_policy": {"auto_advance_min_confidence": 0.10},
+            }
+            with (
+                patch("assessment_analytics.scoring.evaluate_integrity", return_value=mock_integrity),
+                patch("assessment_analytics.scoring._compute_haci", return_value=(70.0, [])),
+            ):
+                result = scoring.score_session(self.events, context_with_policy)
+
+        # Fixture confidence > 0.10 override → auto-advance
+        self.assertGreater(result["confidence"], 0.10)
+        self.assertEqual(result["policy_recommendation"], "auto-advance")
+        self.assertFalse(result["review_required"])
+
+    def test_policy_override_raises_threshold_above_session_confidence(self) -> None:
+        """When decision_policy sets a higher threshold, stricter check blocks auto-advance."""
+        with patch.dict("os.environ", {}, clear=True):
+            import importlib
+            import assessment_analytics.scoring as scoring
+
+            importlib.reload(scoring)
+
+            mock_integrity = {
+                "verdict": "clean",
+                "flags": [],
+                "missing_streams": [],
+                "required_streams_present": ["desktop", "ide"],
+                "invalidation_reasons": [],
+                "haci_score": None,
+                "predicted_archetype": None,
+            }
+            # Set threshold above the fixture heuristic confidence (~0.18) so auto-advance fails.
+            context_with_strict_policy = {
+                **self.session_context,
+                "decision_policy": {"auto_advance_min_confidence": 0.95},
+            }
+            with (
+                patch("assessment_analytics.scoring.evaluate_integrity", return_value=mock_integrity),
+                patch("assessment_analytics.scoring._compute_haci", return_value=(70.0, [])),
+            ):
+                result = scoring.score_session(self.events, context_with_strict_policy)
+
+        # Fixture confidence < 0.95 strict override → human-review
+        self.assertLess(result["confidence"], 0.95)
+        self.assertEqual(result["policy_recommendation"], "human-review")
+        self.assertTrue(result["review_required"])
+
     def test_haci_is_stable_across_scoring_modes(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
             import importlib
