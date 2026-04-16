@@ -10,7 +10,10 @@ import {
   confidenceLabel,
   eventCount,
   formatReviewerDecision,
+  haciBandDescription,
+  integrityVerdictDescription,
   resolvePreferredSessionId,
+  scoringModeDescription,
   scoringModesDisagree,
   topFeatureLabels
 } from "../../apps/reviewer-web/src/view-model";
@@ -416,4 +419,43 @@ test("buildIntegrityFlagLabels renders low_information_session with reviewer-fac
   assert.equal(unknownLabels.length, 1);
   assert.match(unknownLabels[0], /Some Future Flag/);
   assert.match(unknownLabels[0], /some_future_flag/);
+});
+
+test("haciBandDescription returns honest, threshold-grounded band descriptions", () => {
+  // Each band returns a non-empty reviewer-facing string
+  assert.match(haciBandDescription("high"), /strong independent-work signal/i);
+  assert.match(haciBandDescription("high"), /≥ 70/);
+
+  assert.match(haciBandDescription("medium"), /mixed or moderate/i);
+  assert.match(haciBandDescription("medium"), /40.{1,3}69/);
+
+  assert.match(haciBandDescription("low"), /limited independent-work signal/i);
+  assert.match(haciBandDescription("low"), /< 40/);
+
+  // Unknown or missing band returns empty string (no overclaiming)
+  assert.equal(haciBandDescription(undefined), "");
+  assert.equal(haciBandDescription(null), "");
+  assert.equal(haciBandDescription("unknown"), "");
+});
+
+test("scoringModeDescription returns honest descriptions for each mode", () => {
+  // Heuristic description notes it is always available and needs no artifacts
+  assert.match(scoringModeDescription("heuristic"), /centroid/i);
+  assert.match(scoringModeDescription("heuristic"), /always available/i);
+
+  // Trained-model description notes probabilistic output and is not a guarantee
+  assert.match(scoringModeDescription("trained_model"), /xgboost/i);
+  assert.match(scoringModeDescription("trained_model"), /not a calibration guarantee/i);
+
+  // Unknown mode returns empty string
+  assert.equal(scoringModeDescription("unknown"), "");
+});
+
+test("integrityVerdictDescription returns brief reviewer-facing descriptions", () => {
+  assert.match(integrityVerdictDescription("clean"), /all integrity checks passed/i);
+  assert.match(integrityVerdictDescription("review"), /human review recommended/i);
+  assert.match(integrityVerdictDescription("invalid"), /cannot be scored reliably/i);
+
+  // Unknown verdict returns empty string
+  assert.equal(integrityVerdictDescription("unknown"), "");
 });

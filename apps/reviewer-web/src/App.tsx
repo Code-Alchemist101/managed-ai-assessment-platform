@@ -19,7 +19,10 @@ import {
   confidenceLabel,
   eventCount,
   formatReviewerDecision,
+  haciBandDescription,
+  integrityVerdictDescription,
   resolvePreferredSessionId,
+  scoringModeDescription,
   scoringModesDisagree,
   topFeatureLabels
 } from "./view-model";
@@ -232,6 +235,11 @@ export function App() {
                 <h2>HACI</h2>
                 <p style={{ fontSize: 42, margin: "8px 0" }}>{scoring?.haci_score ?? "--"}</p>
                 <p style={{ margin: 0 }}>Band: {scoring?.haci_band ?? "pending"}</p>
+                {scoring?.haci_band ? (
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                    {haciBandDescription(scoring.haci_band)}
+                  </p>
+                ) : null}
               </div>
               <div style={cardStyle}>
                 <h2>Predicted Archetype</h2>
@@ -246,6 +254,11 @@ export function App() {
                     Relative score strength — not a probability estimate.
                   </p>
                 ) : null}
+                {scoring?.scoring_mode === "trained_model" ? (
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+                    Probabilistic model estimate — not a calibration guarantee.
+                  </p>
+                ) : null}
                 {scoring ? (
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>
                     Active mode: {scoring.scoring_mode}
@@ -256,10 +269,20 @@ export function App() {
                 <h2>Integrity Verdict</h2>
                 <p style={{ fontSize: 28, margin: "8px 0" }}>{integrityVerdict}</p>
                 <p style={{ margin: 0 }}>Policy Recommendation: {policyRecommendation}</p>
+                {scoring?.integrity.verdict ? (
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                    {integrityVerdictDescription(scoring.integrity.verdict)}
+                  </p>
+                ) : null}
               </div>
               <div style={cardStyle}>
                 <h2>Scoring Provenance</h2>
                 <p style={{ margin: "0 0 8px" }}>Active mode: {scoring?.scoring_mode ?? "pending"}</p>
+                {scoring?.scoring_mode ? (
+                  <p style={{ margin: "0 0 8px", fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                    {scoringModeDescription(scoring.scoring_mode)}
+                  </p>
+                ) : null}
                 <p style={{ margin: "0 0 8px" }}>Active model: {scoring?.model_version ?? "pending"}</p>
                 <p style={{ margin: "0 0 8px" }}>Archetype certainty:</p>
                 {archetypeProbabilities.length ? (
@@ -534,6 +557,11 @@ function ScoringModeCard({
           {result.scoring_mode === "heuristic" ? (
             <p style={{ margin: "0 0 8px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
               Relative score strength — not a probability estimate.
+            </p>
+          ) : null}
+          {result.scoring_mode === "trained_model" ? (
+            <p style={{ margin: "0 0 8px", fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+              Probabilistic model estimate — not a calibration guarantee.
             </p>
           ) : null}
           <p style={{ margin: "0 0 4px", fontSize: 12, color: "#64748b" }}>Archetype distribution:</p>

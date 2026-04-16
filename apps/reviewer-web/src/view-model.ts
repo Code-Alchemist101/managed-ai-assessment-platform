@@ -40,6 +40,56 @@ export function confidenceLabel(scoringMode: string): string {
 }
 
 /**
+ * Returns a brief reviewer-facing description of a HACI band.
+ * Reflects the pipeline thresholds (high ≥ 70, medium ≥ 40, low < 40).
+ * These are operational thresholds, not calibrated population benchmarks.
+ */
+export function haciBandDescription(band: string | null | undefined): string {
+  switch (band) {
+    case "high":
+      return "Strong independent-work signal (score ≥ 70). Treat as one input among several.";
+    case "medium":
+      return "Mixed or moderate independent-work signal (score 40–69). Review supporting evidence.";
+    case "low":
+      return "Limited independent-work signal (score < 40). Additional context is especially important.";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Returns a brief reviewer-facing description of a scoring mode.
+ * Helps reviewers understand how the result was produced without overstating
+ * scientific validity.
+ */
+export function scoringModeDescription(mode: string): string {
+  switch (mode) {
+    case "heuristic":
+      return "Centroid-based heuristic scoring. Always available; no trained model artifacts required.";
+    case "trained_model":
+      return "XGBoost classifier scoring. Uses trained artifacts; output is probabilistic, not a calibration guarantee.";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Returns a brief reviewer-facing description of an integrity verdict.
+ */
+export function integrityVerdictDescription(verdict: string): string {
+  switch (verdict) {
+    case "clean":
+      return "All integrity checks passed. No flags raised.";
+    case "review":
+      return "One or more integrity flags raised. Human review recommended.";
+    case "invalid":
+      return "Session cannot be scored reliably. Integrity checks failed.";
+    default:
+      return "";
+  }
+}
+
+/**
  * Returns true when both heuristic and trained-model results are present and
  * predict different archetypes.  Used to trigger a reviewer guidance banner.
  */
