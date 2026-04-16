@@ -52,6 +52,7 @@ export function App() {
   const [decision, setDecision] = useState<ReviewerDecision | null>(null);
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +116,7 @@ export function App() {
         setEvents(sessionEvents);
         setScoring(scoringPayload);
         setDecision(existingDecision);
+        setNoteInput(existingDecision?.note ?? "");
         setDecisionError(null);
         setSessions((currentSessions) =>
           currentSessions.map((session) => (session.id === sessionDetail.id ? sessionDetail : session))
@@ -166,7 +168,7 @@ export function App() {
     setDecisionSubmitting(true);
     setDecisionError(null);
     try {
-      const saved = await saveDecision(selectedSessionId, value);
+      const saved = await saveDecision(selectedSessionId, value, noteInput.trim() || undefined);
       setDecision(saved);
     } catch (err) {
       setDecisionError(err instanceof Error ? err.message : "Failed to save decision.");
@@ -295,6 +297,25 @@ export function App() {
               ) : (
                 <p style={{ margin: "0 0 12px" }}>No decision recorded yet.</p>
               )}
+              {decision?.note ? (
+                <p style={{ margin: "0 0 12px", fontStyle: "italic", color: "#475569" }}>
+                  Note: {decision.note}
+                </p>
+              ) : null}
+              <div style={{ marginBottom: 12 }}>
+                <label htmlFor="reviewer-note" style={{ display: "block", marginBottom: 4, fontWeight: 600, fontSize: 14 }}>
+                  Reviewer Note (optional)
+                </label>
+                <textarea
+                  id="reviewer-note"
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  disabled={decisionSubmitting}
+                  placeholder="Add a note explaining your decision…"
+                  rows={3}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontFamily: "inherit", fontSize: 14, resize: "vertical" }}
+                />
+              </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {(
                   [
