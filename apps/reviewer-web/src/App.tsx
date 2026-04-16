@@ -20,6 +20,7 @@ import {
   eventCount,
   formatReviewerDecision,
   resolvePreferredSessionId,
+  scoringModesDisagree,
   topFeatureLabels
 } from "./view-model";
 
@@ -280,14 +281,30 @@ export function App() {
                 title="Heuristic Result"
                 subtitle="always computed"
                 result={scoring?.heuristic_result ?? null}
+                isActive={scoring?.scoring_mode === "heuristic"}
               />
               <ScoringModeCard
                 title="Trained-Model Result"
                 subtitle="requires artifacts"
                 result={scoring?.trained_model_result ?? null}
+                isActive={scoring?.scoring_mode === "trained_model"}
                 unavailableLabel="Artifacts not loaded — heuristic used as fallback"
               />
             </section>
+
+            {scoring && scoringModesDisagree(scoring) ? (
+              <section style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 12, padding: "12px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, lineHeight: 1 }}>⚠️</span>
+                <div>
+                  <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14, color: "#92400e" }}>Scoring modes disagree</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#78350f" }}>
+                    The heuristic and trained-model results predict different archetypes.
+                    The <strong>Active · Policy Driver</strong> result (highlighted in blue) is the one used for the policy recommendation.
+                    Review both results and use your judgment; the comparative result is shown for context only.
+                  </p>
+                </div>
+              </section>
+            ) : null}
 
             <section style={cardStyle}>
               <h2>Reviewer Decision</h2>
@@ -474,25 +491,40 @@ function ScoringModeCard({
   title,
   subtitle,
   result,
+  isActive,
   unavailableLabel
 }: {
   title: string;
   subtitle: string;
   result: ArchetypeResult | null;
+  isActive?: boolean;
   unavailableLabel?: string;
 }) {
   const cardStyle: React.CSSProperties = {
     background: "#ffffff",
     borderRadius: 18,
     padding: 20,
-    boxShadow: "0 18px 40px rgba(15,23,42,0.08)"
+    boxShadow: isActive
+      ? "0 18px 40px rgba(15,23,42,0.08), 0 0 0 2px #3b82f6"
+      : "0 18px 40px rgba(15,23,42,0.08)"
   };
 
   const entries = buildArchetypeProbabilityEntriesFromMap(result?.archetype_probabilities);
 
   return (
     <div style={cardStyle}>
-      <h2 style={{ margin: "0 0 4px" }}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <h2 style={{ margin: 0 }}>{title}</h2>
+        {isActive ? (
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#ffffff", background: "#3b82f6", borderRadius: 4, padding: "2px 6px", letterSpacing: "0.02em" }}>
+            ACTIVE · POLICY DRIVER
+          </span>
+        ) : (
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", background: "#f1f5f9", borderRadius: 4, padding: "2px 6px" }}>
+            COMPARATIVE
+          </span>
+        )}
+      </div>
       <p style={{ margin: "0 0 10px", fontSize: 12, color: "#64748b" }}>{subtitle}</p>
       {result ? (
         <>

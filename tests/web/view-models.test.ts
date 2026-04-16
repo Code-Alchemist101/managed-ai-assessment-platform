@@ -10,6 +10,7 @@ import {
   eventCount,
   formatReviewerDecision,
   resolvePreferredSessionId,
+  scoringModesDisagree,
   topFeatureLabels
 } from "../../apps/reviewer-web/src/view-model";
 
@@ -289,4 +290,56 @@ test("buildTimelineEntries returns all events beyond the former 10-event cap", (
 
   // eventCount still reflects the full set
   assert.equal(eventCount(response), 15);
+});
+
+test("scoringModesDisagree detects archetype disagreement between dual scoring modes", () => {
+  const baseScoring = {
+    session_id: "session-123",
+    model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic" as const,
+    haci_score: 50,
+    haci_band: "medium" as const,
+    predicted_archetype: "Exploratory Learner" as const,
+    archetype_probabilities: { "Exploratory Learner": 0.6, "Blind Copier": 0.4 },
+    confidence: 0.6,
+    top_features: [],
+    integrity: {
+      verdict: "clean" as const,
+      flags: [],
+      required_streams_present: ["desktop", "ide"],
+      missing_streams: [],
+      notes: []
+    },
+    policy_recommendation: "human-review" as const,
+    review_required: true,
+    feature_vector: {
+      session_id: "session-123",
+      extraction_version: "0.1.0",
+      generated_at: "2026-04-12T09:10:00Z",
+      signal_values: {},
+      signals: [],
+      completeness: "complete" as const,
+      invalidation_reasons: []
+    }
+  };
+
+  // Returns false when scoring is null
+  assert.equal(scoringModesDisagree(null), false);
+
+  // Returns false when only heuristic_result is present (no trained_model_result)
+  assert.equal(scoringModesDisagree({ ...baseScoring, heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 } }), false);
+
+  // Returns false when both modes agree on the same archetype
+  assert.equal(scoringModesDisagree({
+    ...baseScoring,
+    heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 },
+    trained_model_result: { scoring_mode: "trained_model", model_version: "xgboost-research-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.72 }
+  }), false);
+
+  // Returns true when heuristic and trained-model predict different archetypes
+  assert.equal(scoringModesDisagree({
+    ...baseScoring,
+    heuristic_result: { scoring_mode: "heuristic", model_version: "bootstrap-centroid-v1", predicted_archetype: "Exploratory Learner", archetype_probabilities: {}, confidence: 0.6 },
+    trained_model_result: { scoring_mode: "trained_model", model_version: "xgboost-research-v1", predicted_archetype: "Blind Copier", archetype_probabilities: {}, confidence: 0.55 }
+  }), true);
 });
