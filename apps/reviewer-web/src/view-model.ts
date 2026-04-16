@@ -39,6 +39,17 @@ export function confidenceLabel(scoringMode: string): string {
   return scoringMode === "trained_model" ? "Model Confidence" : "Score Strength";
 }
 
+/**
+ * Returns true when both heuristic and trained-model results are present and
+ * predict different archetypes.  Used to trigger a reviewer guidance banner.
+ */
+export function scoringModesDisagree(scoring: SessionScoringPayload | null): boolean {
+  if (!scoring?.heuristic_result || !scoring?.trained_model_result) {
+    return false;
+  }
+  return scoring.heuristic_result.predicted_archetype !== scoring.trained_model_result.predicted_archetype;
+}
+
 function humanizeEventType(eventType: string): string {
   return eventType
     .replace(/\./g, " ")
