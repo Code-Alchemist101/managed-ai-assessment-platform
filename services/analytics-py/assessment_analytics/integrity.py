@@ -3,13 +3,10 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-# Sessions with fewer than this many total events lack sufficient behavioral
-# signal for reliable archetype scoring.  The heuristic is particularly prone
-# to producing high-confidence Independent-Solver labels when only a handful
-# of typing events are present (the typing_vs_paste_ratio signal degrades to a
-# raw character count when no paste events exist, artificially inflating that
-# archetype's score).  Flagging these sessions routes them to reviewer
-# attention without changing the scoring values themselves.
+# Sessions with fewer than this many total events can be low-information for
+# archetype scoring, but we only flag the specific sparse signature that is
+# known to inflate Independent Solver confidence: short session + typing-only
+# edits + no AI prompt telemetry.
 _LOW_INFORMATION_EVENT_THRESHOLD = 10
 
 
@@ -76,7 +73,16 @@ def evaluate_integrity(
     if any(event["event_type"] == "system.browser.unmanaged" for event in events):
         flags.append("unmanaged_browser_detected")
 
-    if len(events) < _LOW_INFORMATION_EVENT_THRESHOLD:
+    total_insert_events = feature_vector["signal_values"].get("total_insert_events", 0)
+    total_paste_events = feature_vector["signal_values"].get("total_paste_events", 0)
+    total_prompts_sent = feature_vector["signal_values"].get("total_prompts_sent", 0)
+    likely_sparse_independent_solver_signature = (
+        len(events) < _LOW_INFORMATION_EVENT_THRESHOLD
+        and total_insert_events > 0
+        and total_paste_events == 0
+        and total_prompts_sent == 0
+    )
+    if likely_sparse_independent_solver_signature:
         flags.append("low_information_session")
         notes.append(
             f"Session has only {len(events)} event(s); archetype scoring may be unreliable "

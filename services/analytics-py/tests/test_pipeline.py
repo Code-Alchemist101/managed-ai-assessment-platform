@@ -142,10 +142,8 @@ class AnalyticsPipelineTests(unittest.TestCase):
         integrity = evaluate_integrity(events, feature_vector, session_context)
 
         self.assertNotIn("unsupported_site_visited", integrity["flags"])
-        # The 4-event session is below the low-information threshold, so the
-        # verdict becomes "review" (not "clean") and the flag is present.
-        self.assertIn("low_information_session", integrity["flags"])
-        self.assertEqual(integrity["verdict"], "review")
+        self.assertNotIn("low_information_session", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "clean")
 
     def test_integrity_flags_explicitly_unsupported_browser_navigation(self) -> None:
         session_context = {
@@ -432,26 +430,24 @@ class ShortSessionTests(unittest.TestCase):
     # Integrity flag tests
     # ------------------------------------------------------------------
 
-    def test_sparse_session_below_threshold_gets_low_information_flag(self) -> None:
-        """Sessions with fewer than 10 events receive a low_information_session flag."""
+    def test_short_session_without_sparse_signature_is_not_flagged_low_information(self) -> None:
+        """Short sessions are not flagged unless they match the known sparse signature."""
         events = _make_short_session_events(event_count=4)
         feature_vector = extract_feature_vector(events, self._SESSION_CONTEXT)
         integrity = evaluate_integrity(events, feature_vector, self._SESSION_CONTEXT)
 
-        self.assertIn("low_information_session", integrity["flags"])
-        # Non-fatal flag: verdict is "review", not "invalid".
-        self.assertEqual(integrity["verdict"], "review")
-        self.assertTrue(
-            any("insufficient behavioral signal" in note for note in integrity["notes"])
-        )
+        self.assertNotIn("low_information_session", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "clean")
 
-    def test_session_at_threshold_does_not_get_low_information_flag(self) -> None:
-        """A session with exactly 10 events is not flagged as low-information."""
-        events = _make_short_session_events(event_count=10, typed_chars=5)
+    def test_sparse_signature_without_ai_or_paste_gets_low_information_flag(self) -> None:
+        """Low-information flag is grounded to the known short typing-only sparse pattern."""
+        events = _make_short_session_events(event_count=4, typed_chars=20)
         feature_vector = extract_feature_vector(events, self._SESSION_CONTEXT)
         integrity = evaluate_integrity(events, feature_vector, self._SESSION_CONTEXT)
 
-        self.assertNotIn("low_information_session", integrity["flags"])
+        self.assertIn("low_information_session", integrity["flags"])
+        self.assertEqual(integrity["verdict"], "review")
+        self.assertTrue(any("insufficient behavioral signal" in note for note in integrity["notes"]))
 
     # ------------------------------------------------------------------
     # Scoring bias documentation tests
