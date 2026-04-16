@@ -53,6 +53,7 @@ export function App() {
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState<string>("");
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +118,7 @@ export function App() {
         setScoring(scoringPayload);
         setDecision(existingDecision);
         setNoteInput(existingDecision?.note ?? "");
+        setTimelineExpanded(false);
         setDecisionError(null);
         setSessions((currentSessions) =>
           currentSessions.map((session) => (session.id === sessionDetail.id ? sessionDetail : session))
@@ -341,13 +343,23 @@ export function App() {
               <div style={cardStyle}>
                 <h2>Timeline</h2>
                 {timeline.length ? (
-                  <ul style={{ paddingLeft: 18, margin: 0 }}>
-                    {timeline.map((entry) => (
-                      <li key={`${entry.timestampLabel}-${entry.label}`}>
-                        {entry.timestampLabel} {entry.label}
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul style={{ paddingLeft: 18, margin: 0 }}>
+                      {(timelineExpanded ? timeline : timeline.slice(0, 10)).map((entry) => (
+                        <li key={`${entry.timestampLabel}-${entry.label}`}>
+                          {entry.timestampLabel} {entry.label}
+                        </li>
+                      ))}
+                    </ul>
+                    {timeline.length > 10 ? (
+                      <button
+                        onClick={() => setTimelineExpanded((expanded) => !expanded)}
+                        style={{ marginTop: 10, padding: "4px 12px", borderRadius: 6, border: "1px solid #cbd5e1", background: "transparent", cursor: "pointer", fontSize: 13, color: "#475569" }}
+                      >
+                        {timelineExpanded ? "Show fewer" : `Show all ${timeline.length} events`}
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <p style={{ margin: 0 }}>No event timeline available for this session.</p>
                 )}

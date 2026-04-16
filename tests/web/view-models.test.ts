@@ -36,6 +36,7 @@ test("reviewer view models map scoring and events into renderable content", () =
 
   assert.equal(timeline.length, 2);
   assert.match(timeline[0].label, /Session Started/);
+  assert.match(timeline[1].label, /Browser Ai Prompt/);
   assert.equal(eventCount({
     session_id: "session-123",
     events: [
@@ -267,4 +268,25 @@ test("confidenceLabel returns mode-aware label distinguishing score strength fro
   assert.equal(confidenceLabel("trained_model"), "Model Confidence");
   // Any unrecognised mode falls back to the heuristic label (score strength)
   assert.equal(confidenceLabel("unknown"), "Score Strength");
+});
+
+test("buildTimelineEntries returns all events beyond the former 10-event cap", () => {
+  // Build 15 events to verify no cap is applied
+  const events = Array.from({ length: 15 }, (_, index) => ({
+    source: "desktop" as const,
+    event_type: `session.event_${index}`,
+    timestamp_utc: `2026-04-12T09:${String(index).padStart(2, "0")}:00Z`,
+    artifact_ref: "session",
+    payload: {}
+  }));
+
+  const response = { session_id: "session-big", events };
+  const timeline = buildTimelineEntries(response);
+
+  assert.equal(timeline.length, 15, "all 15 events should be returned, not capped at 10");
+  assert.match(timeline[0].label, /Session Event_0/);
+  assert.match(timeline[14].label, /Session Event_14/);
+
+  // eventCount still reflects the full set
+  assert.equal(eventCount(response), 15);
 });

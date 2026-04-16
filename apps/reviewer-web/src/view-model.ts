@@ -49,7 +49,7 @@ export function buildTimelineEntries(eventsResponse: SessionEventsResponse | nul
   if (!eventsResponse) {
     return [];
   }
-  return eventsResponse.events.slice(0, 10).map((event) => ({
+  return eventsResponse.events.map((event) => ({
     timestampLabel: new Date(event.timestamp_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     label: humanizeEventType(event.event_type)
   }));
