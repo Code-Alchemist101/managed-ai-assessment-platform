@@ -31,6 +31,34 @@ class AnalyticsPipelineTests(unittest.TestCase):
         self.session_context = payload["session_context"]
         self.events = payload["events"]
 
+    # ------------------------------------------------------------------
+    # Helper used by the decision-policy threshold tests.
+    # ------------------------------------------------------------------
+    MOCK_CLEAN_INTEGRITY: dict = {
+        "verdict": "clean",
+        "flags": [],
+        "missing_streams": [],
+        "required_streams_present": ["desktop", "ide"],
+        "invalidation_reasons": [],
+        "haci_score": None,
+        "predicted_archetype": None,
+    }
+
+    def _score_with_clean_integrity_high_haci(self, session_context: dict) -> dict:
+        """Reload scoring in heuristic mode, mock clean integrity and high HACI, then score."""
+        # importlib.reload is used inside the method so that each call re-evaluates
+        # ARCHETYPE_MODE from the environment, resetting any state left by previous tests.
+        import importlib
+        import assessment_analytics.scoring as scoring
+
+        with patch.dict("os.environ", {}, clear=True):
+            importlib.reload(scoring)
+            with (
+                patch("assessment_analytics.scoring.evaluate_integrity", return_value=self.MOCK_CLEAN_INTEGRITY),
+                patch("assessment_analytics.scoring._compute_haci", return_value=(70.0, [])),
+            ):
+                return scoring.score_session(self.events, session_context)
+
     def test_feature_vector_contains_all_51_signals(self) -> None:
         feature_vector = extract_feature_vector(self.events, self.session_context)
         self.assertEqual(len(feature_vector["signals"]), 51)
@@ -274,6 +302,45 @@ class AnalyticsPipelineTests(unittest.TestCase):
 
         self.assertEqual(result["scoring_mode"], "heuristic")
         self.assertEqual(result["model_version"], "bootstrap-centroid-v1")
+
+    def test_policy_default_threshold_applied_when_no_decision_policy(self) -> None:
+        """Default auto-advance threshold (0.90) is used when decision_policy is absent."""
+        # Fixture heuristic confidence is well below 0.90 (~0.18). With clean integrity
+        # and HACI >= 65, only the confidence gate determines the recommendation.
+        result = self._score_with_clean_integrity_high_haci(self.session_context)
+
+        # Actual fixture heuristic confidence < 0.90 → default threshold not met → human-review
+        self.assertLess(result["confidence"], 0.90)
+        self.assertEqual(result["policy_recommendation"], "human-review")
+        self.assertTrue(result["review_required"])
+
+    def test_policy_override_lowers_auto_advance_threshold(self) -> None:
+        """When decision_policy.auto_advance_min_confidence is set lower, it replaces the default."""
+        # Set threshold below the fixture heuristic confidence (~0.18) so auto-advance triggers.
+        context_with_policy = {
+            **self.session_context,
+            "decision_policy": {"auto_advance_min_confidence": 0.10},
+        }
+        result = self._score_with_clean_integrity_high_haci(context_with_policy)
+
+        # Fixture confidence > 0.10 override → auto-advance
+        self.assertGreater(result["confidence"], 0.10)
+        self.assertEqual(result["policy_recommendation"], "auto-advance")
+        self.assertFalse(result["review_required"])
+
+    def test_policy_override_raises_threshold_above_session_confidence(self) -> None:
+        """When decision_policy sets a higher threshold, stricter check blocks auto-advance."""
+        # Set threshold above the fixture heuristic confidence (~0.18) so auto-advance fails.
+        context_with_strict_policy = {
+            **self.session_context,
+            "decision_policy": {"auto_advance_min_confidence": 0.95},
+        }
+        result = self._score_with_clean_integrity_high_haci(context_with_strict_policy)
+
+        # Fixture confidence < 0.95 strict override → human-review
+        self.assertLess(result["confidence"], 0.95)
+        self.assertEqual(result["policy_recommendation"], "human-review")
+        self.assertTrue(result["review_required"])
 
     def test_haci_is_stable_across_scoring_modes(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
