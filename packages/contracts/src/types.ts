@@ -114,6 +114,7 @@ export const SessionDetailSchema = SessionSummarySchema.extend({
 export const ScoringResultSchema = z.object({
   session_id: z.string(),
   model_version: z.string(),
+  scoring_mode: z.enum(["heuristic", "trained_model"]),
   haci_score: z.number().min(0).max(100),
   haci_band: z.enum(["high", "medium", "low"]),
   predicted_archetype: ArchetypeSchema,
