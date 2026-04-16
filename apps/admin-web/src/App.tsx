@@ -74,7 +74,7 @@ export function App() {
       <div style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gap: 18 }}>
         <header>
           <p style={{ textTransform: "uppercase", letterSpacing: 2, fontSize: 12, marginBottom: 8 }}>Admin Console</p>
-          <h1 style={{ margin: 0, fontSize: 40 }}>Assessment Configuration and Governance</h1>
+          <h1 style={{ margin: 0, fontSize: 40 }}>Assessment Configuration</h1>
           <p style={{ maxWidth: 720 }}>
             This view is now backed by the local control plane for manifest visibility, session inventory, and reviewer triage links.
           </p>
@@ -94,12 +94,13 @@ export function App() {
                 <p>Latest scored session: {runtime?.latest_scored_session_id ?? "None"}</p>
               </div>
               <div style={panelStyle}>
-                <h2>Governance Checklist</h2>
-                <ul style={{ paddingLeft: 18, margin: 0 }}>
-                  <li>Model version pinning</li>
-                  <li>Retention policy configuration</li>
-                  <li>Reviewer assignment workflows</li>
-                  <li>Audit export controls</li>
+                <h2>Active Services</h2>
+                <p style={{ margin: "0 0 6px", fontSize: 13, color: "#6b7280" }}>Live endpoint configuration from runtime.</p>
+                <ul style={{ paddingLeft: 18, margin: 0, fontSize: 13 }}>
+                  <li>Control plane: {runtime?.control_plane_url ?? "—"}</li>
+                  <li>Analytics: {runtime?.analytics_url ?? "—"}</li>
+                  <li>Ingestion: {runtime?.ingestion_url ?? "—"}</li>
+                  <li>Reviewer: {runtime?.reviewer_url ?? "—"}</li>
                 </ul>
               </div>
             </section>
