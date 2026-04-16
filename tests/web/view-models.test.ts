@@ -6,6 +6,7 @@ import {
   buildCompletenessSummary,
   buildSourceMix,
   buildTimelineEntries,
+  confidenceLabel,
   eventCount,
   formatReviewerDecision,
   resolvePreferredSessionId,
@@ -259,4 +260,11 @@ test("buildArchetypeProbabilityEntriesFromMap ranks raw probability maps for dua
 
   assert.deepEqual(buildArchetypeProbabilityEntriesFromMap(undefined), []);
   assert.deepEqual(buildArchetypeProbabilityEntriesFromMap({}), []);
+});
+
+test("confidenceLabel returns mode-aware label distinguishing score strength from model confidence", () => {
+  assert.equal(confidenceLabel("heuristic"), "Score Strength");
+  assert.equal(confidenceLabel("trained_model"), "Model Confidence");
+  // Any unrecognised mode falls back to the heuristic label (score strength)
+  assert.equal(confidenceLabel("unknown"), "Score Strength");
 });
