@@ -459,3 +459,230 @@ test("integrityVerdictDescription returns brief reviewer-facing descriptions", (
   // Unknown verdict returns empty string
   assert.equal(integrityVerdictDescription("unknown"), "");
 });
+
+// ---------------------------------------------------------------------------
+// Edge-case and partial-data hardening
+// ---------------------------------------------------------------------------
+
+test("buildTimelineEntries returns empty array for null events response", () => {
+  assert.deepEqual(buildTimelineEntries(null), []);
+});
+
+test("buildTimelineEntries returns empty array for events response with empty events array", () => {
+  assert.deepEqual(buildTimelineEntries({ session_id: "s", events: [] }), []);
+});
+
+test("eventCount returns 0 for null events response", () => {
+  assert.equal(eventCount(null), 0);
+});
+
+test("buildSourceMix returns empty array for null events response", () => {
+  assert.deepEqual(buildSourceMix(null), []);
+});
+
+test("buildSourceMix returns empty array for events response with no events", () => {
+  assert.deepEqual(buildSourceMix({ session_id: "s", events: [] }), []);
+});
+
+test("buildCompletenessSummary returns all-empty struct for null session", () => {
+  const result = buildCompletenessSummary(null);
+  assert.deepEqual(result.requiredStreams, []);
+  assert.deepEqual(result.presentStreams, []);
+  assert.deepEqual(result.missingStreams, []);
+  assert.deepEqual(result.invalidationReasons, []);
+  assert.deepEqual(result.sourceCounts, []);
+});
+
+test("topFeatureLabels returns empty array for null scoring", () => {
+  assert.deepEqual(topFeatureLabels(null), []);
+});
+
+test("resolvePreferredSessionId returns null when sessions list is empty", () => {
+  const runtime = {
+    control_plane_url: "http://127.0.0.1:4010",
+    ingestion_url: "http://127.0.0.1:4020/api/events",
+    analytics_url: "http://127.0.0.1:4030",
+    reviewer_url: "http://127.0.0.1:4173",
+    admin_url: "http://127.0.0.1:4174",
+    assessment_data_dir: "C:/tmp",
+    latest_session_id: null,
+    latest_scored_session_id: null
+  };
+  assert.equal(resolvePreferredSessionId(null, runtime, []), null);
+});
+
+test("resolvePreferredSessionId falls back to latest_scored_session_id when query session not found", () => {
+  const sessions = [
+    {
+      id: "session-a",
+      manifest_id: "manifest-python-cli",
+      manifest_name: "Python CLI Assessment",
+      candidate_id: "cand-a",
+      created_at: "2026-04-15T09:00:00Z",
+      updated_at: "2026-04-15T09:01:00Z",
+      status: "scored" as const,
+      has_scoring: true,
+      required_streams: ["desktop", "ide"],
+      present_streams: ["desktop", "ide"],
+      event_counts_by_source: { desktop: 3, ide: 2 },
+      first_event_at: "2026-04-15T09:00:05Z",
+      last_event_at: "2026-04-15T09:00:55Z",
+      integrity_verdict: "clean" as const,
+      missing_streams: [],
+      policy_recommendation: "human-review" as const,
+      invalidation_reasons: [],
+      haci_score: 55,
+      predicted_archetype: "Independent Solver" as const
+    }
+  ];
+
+  const runtime = {
+    control_plane_url: "http://127.0.0.1:4010",
+    ingestion_url: "http://127.0.0.1:4020/api/events",
+    analytics_url: "http://127.0.0.1:4030",
+    reviewer_url: "http://127.0.0.1:4173",
+    admin_url: "http://127.0.0.1:4174",
+    assessment_data_dir: "C:/tmp",
+    latest_session_id: "session-a",
+    latest_scored_session_id: "session-a"
+  };
+
+  // Query session is not in the sessions list → should fall back to latest_scored_session_id.
+  const resolved = resolvePreferredSessionId("does-not-exist", runtime, sessions);
+  assert.equal(resolved, "session-a");
+});
+
+test("resolvePreferredSessionId falls back to first session when latest_scored_session_id is null", () => {
+  const sessions = [
+    {
+      id: "session-b",
+      manifest_id: "manifest-python-cli",
+      manifest_name: "Python CLI Assessment",
+      candidate_id: "cand-b",
+      created_at: "2026-04-15T09:00:00Z",
+      updated_at: "2026-04-15T09:01:00Z",
+      status: "created" as const,
+      has_scoring: false,
+      required_streams: ["desktop", "ide"],
+      present_streams: [],
+      event_counts_by_source: {},
+      first_event_at: null,
+      last_event_at: null,
+      integrity_verdict: null,
+      missing_streams: [],
+      policy_recommendation: null,
+      invalidation_reasons: [],
+      haci_score: null,
+      predicted_archetype: null
+    }
+  ];
+
+  const runtime = {
+    control_plane_url: "http://127.0.0.1:4010",
+    ingestion_url: "http://127.0.0.1:4020/api/events",
+    analytics_url: "http://127.0.0.1:4030",
+    reviewer_url: "http://127.0.0.1:4173",
+    admin_url: "http://127.0.0.1:4174",
+    assessment_data_dir: "C:/tmp",
+    latest_session_id: "session-b",
+    latest_scored_session_id: null
+  };
+
+  // No query ID, no latest_scored_session_id → should return first session.
+  const resolved = resolvePreferredSessionId(null, runtime, sessions);
+  assert.equal(resolved, "session-b");
+});
+
+test("scoringModesDisagree returns false when trained_model_result is null", () => {
+  const scoring = {
+    session_id: "s",
+    model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic" as const,
+    haci_score: 50,
+    haci_band: "medium" as const,
+    predicted_archetype: "Independent Solver" as const,
+    archetype_probabilities: { "Independent Solver": 0.8 },
+    confidence: 0.8,
+    top_features: [],
+    integrity: {
+      verdict: "clean" as const,
+      flags: [],
+      required_streams_present: ["desktop"],
+      missing_streams: [],
+      notes: []
+    },
+    policy_recommendation: "human-review" as const,
+    review_required: true,
+    feature_vector: {
+      session_id: "s",
+      extraction_version: "0.1.0",
+      generated_at: "2026-04-15T09:00:00Z",
+      signal_values: {},
+      signals: [],
+      completeness: "complete" as const,
+      invalidation_reasons: []
+    },
+    heuristic_result: {
+      scoring_mode: "heuristic" as const,
+      model_version: "bootstrap-centroid-v1",
+      predicted_archetype: "Independent Solver" as const,
+      archetype_probabilities: {},
+      confidence: 0.8
+    },
+    trained_model_result: null
+  };
+
+  assert.equal(scoringModesDisagree(scoring), false);
+});
+
+test("buildIntegrityFlagLabels returns label for every known flag type", () => {
+  const allFlagsScoring = {
+    session_id: "s-all-flags",
+    model_version: "bootstrap-centroid-v1",
+    scoring_mode: "heuristic" as const,
+    haci_score: 30,
+    haci_band: "low" as const,
+    predicted_archetype: "Blind Copier" as const,
+    archetype_probabilities: { "Blind Copier": 0.9 },
+    confidence: 0.9,
+    top_features: [],
+    integrity: {
+      verdict: "review" as const,
+      flags: [
+        "unsupported_ai_provider",
+        "unsupported_site_visited",
+        "unmanaged_tool_detected",
+        "sequence_gap_detected",
+        "telemetry_heartbeat_missing",
+        "suspicious_bulk_paste",
+        "excessive_focus_switching",
+        "excessive_idle_time"
+      ],
+      required_streams_present: ["desktop", "ide"],
+      missing_streams: [],
+      notes: []
+    },
+    policy_recommendation: "human-review" as const,
+    review_required: true,
+    feature_vector: {
+      session_id: "s-all-flags",
+      extraction_version: "0.1.0",
+      generated_at: "2026-04-15T09:00:00Z",
+      signal_values: {},
+      signals: [],
+      completeness: "partial" as const,
+      invalidation_reasons: []
+    }
+  };
+
+  const labels = buildIntegrityFlagLabels(allFlagsScoring);
+  assert.equal(labels.length, 8);
+  // Each label should contain the flag name in parentheses.
+  for (const flag of allFlagsScoring.integrity.flags) {
+    assert.ok(labels.some((l) => l.includes(`(${flag})`)), `Missing label for flag: ${flag}`);
+  }
+  // None of the known-flag labels should fall back to humanized form (they all have descriptions).
+  for (const label of labels) {
+    assert.ok(!label.startsWith("("), "Label should have a description before the flag name");
+  }
+});
