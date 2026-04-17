@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { buildIngestionApp } from "../../services/ingestion-api/src/app";
@@ -246,4 +246,210 @@ test("reviewer decision persistence saves and returns the note field correctly",
   const getWithoutNote = getWithoutNoteResponse.json() as { decision: string; note?: string };
   assert.equal(getWithoutNote.decision, "reject");
   assert.equal(getWithoutNote.note, undefined);
+});
+
+function buildMinimalFixture(events: Array<Record<string, unknown>>): string {
+  return JSON.stringify({
+    session_context: {
+      session_id: "session-gap-fixture",
+      required_streams: ["desktop"],
+      allowed_ai_providers: [],
+      allowed_sites: []
+    },
+    events
+  });
+}
+
+function makeFixtureEvent(eventId: string, sequenceNo: number): Record<string, unknown> {
+  return {
+    event_id: eventId,
+    session_id: "session-gap-fixture",
+    timestamp_utc: "2026-04-12T09:00:00Z",
+    source: "desktop",
+    event_type: "session.heartbeat",
+    sequence_no: sequenceNo,
+    artifact_ref: "session",
+    payload: {},
+    client_version: "0.1.0",
+    integrity_hash: `hash-${eventId}`,
+    policy_context: { managed_session: true }
+  };
+}
+
+test("demo replay with gap fixture produces sequence_gap_detected integrity flag", async (t) => {
+  const repoRoot = path.resolve(process.cwd());
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), "assessment-platform-gap-"));
+  const analyticsPort = await getFreePort();
+
+  const analytics = spawnAnalytics(repoRoot, analyticsPort);
+  t.after(async () => {
+    if (!analytics.killed) {
+      analytics.kill();
+    }
+    await rm(dataRoot, { recursive: true, force: true });
+  });
+
+  await waitForHealthy(`http://127.0.0.1:${analyticsPort}/health`);
+
+  const ingestionApp = await buildIngestionApp({
+    host: "127.0.0.1",
+    port: 0,
+    dataRoot,
+    sessionsDir: path.join(dataRoot, "ingestion", "sessions")
+  });
+  await ingestionApp.listen({ port: 0, host: "127.0.0.1" });
+  t.after(async () => {
+    await ingestionApp.close();
+  });
+  const ingestionPort = (ingestionApp.server.address() as AddressInfo).port;
+
+  // Fixture with a sequence gap: desktop events at sequence_no 1 and 3 (gap at 2).
+  const fixturePath = path.join(dataRoot, "gap-fixture.json");
+  await writeFile(
+    fixturePath,
+    buildMinimalFixture([makeFixtureEvent("gap-evt-001", 1), makeFixtureEvent("gap-evt-002", 3)])
+  );
+
+  const runtime: ControlPlaneRuntime = {
+    host: "127.0.0.1",
+    port: 0,
+    controlPlaneUrl: "http://127.0.0.1:4010",
+    ingestionUrl: `http://127.0.0.1:${ingestionPort}`,
+    analyticsUrl: `http://127.0.0.1:${analyticsPort}`,
+    reviewerUrl: "http://127.0.0.1:4173",
+    adminUrl: "http://127.0.0.1:4174",
+    repoRoot,
+    dataRoot,
+    storageDir: path.join(dataRoot, "control-plane"),
+    manifestsFile: path.join(dataRoot, "control-plane", "manifests.json"),
+    sessionsFile: path.join(dataRoot, "control-plane", "sessions.json"),
+    scoringsDir: path.join(dataRoot, "control-plane", "scorings"),
+    reviewDecisionsDir: path.join(dataRoot, "control-plane", "review-decisions"),
+    ingestionSessionsDir: path.join(dataRoot, "ingestion", "sessions"),
+    fixturePath
+  };
+
+  const controlPlaneApp = await buildControlPlaneApp(runtime);
+  t.after(async () => {
+    await controlPlaneApp.close();
+  });
+
+  const replayResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: "/api/demo/replay-fixture",
+    payload: {}
+  });
+
+  assert.equal(replayResponse.statusCode, 200);
+  const replayPayload = replayResponse.json() as {
+    session: { id: string; status: string };
+    scoring: { integrity: { flags: string[] } };
+  };
+  assert.equal(replayPayload.session.status, "scored");
+  assert.ok(
+    replayPayload.scoring.integrity.flags.includes("sequence_gap_detected"),
+    `Expected sequence_gap_detected in flags, got: ${JSON.stringify(replayPayload.scoring.integrity.flags)}`
+  );
+
+  // Verify the ingested events retain the original (gapped) sequence numbers.
+  const eventsResponse = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${replayPayload.session.id}/events`
+  });
+  assert.equal(eventsResponse.statusCode, 200);
+  const eventsPayload = eventsResponse.json() as { events: Array<{ sequence_no: number; source: string }> };
+  const desktopSeqNos = eventsPayload.events
+    .filter((e) => e.source === "desktop")
+    .map((e) => e.sequence_no)
+    .sort((a, b) => a - b);
+  assert.deepEqual(desktopSeqNos, [1, 3], "Original sequence gap must be preserved in ingested events");
+});
+
+test("demo replay with no-gap fixture does not produce sequence_gap_detected integrity flag", async (t) => {
+  const repoRoot = path.resolve(process.cwd());
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), "assessment-platform-no-gap-"));
+  const analyticsPort = await getFreePort();
+
+  const analytics = spawnAnalytics(repoRoot, analyticsPort);
+  t.after(async () => {
+    if (!analytics.killed) {
+      analytics.kill();
+    }
+    await rm(dataRoot, { recursive: true, force: true });
+  });
+
+  await waitForHealthy(`http://127.0.0.1:${analyticsPort}/health`);
+
+  const ingestionApp = await buildIngestionApp({
+    host: "127.0.0.1",
+    port: 0,
+    dataRoot,
+    sessionsDir: path.join(dataRoot, "ingestion", "sessions")
+  });
+  await ingestionApp.listen({ port: 0, host: "127.0.0.1" });
+  t.after(async () => {
+    await ingestionApp.close();
+  });
+  const ingestionPort = (ingestionApp.server.address() as AddressInfo).port;
+
+  // Fixture with contiguous sequence numbers: desktop events at sequence_no 1 and 2.
+  const fixturePath = path.join(dataRoot, "no-gap-fixture.json");
+  await writeFile(
+    fixturePath,
+    buildMinimalFixture([makeFixtureEvent("no-gap-evt-001", 1), makeFixtureEvent("no-gap-evt-002", 2)])
+  );
+
+  const runtime: ControlPlaneRuntime = {
+    host: "127.0.0.1",
+    port: 0,
+    controlPlaneUrl: "http://127.0.0.1:4010",
+    ingestionUrl: `http://127.0.0.1:${ingestionPort}`,
+    analyticsUrl: `http://127.0.0.1:${analyticsPort}`,
+    reviewerUrl: "http://127.0.0.1:4173",
+    adminUrl: "http://127.0.0.1:4174",
+    repoRoot,
+    dataRoot,
+    storageDir: path.join(dataRoot, "control-plane"),
+    manifestsFile: path.join(dataRoot, "control-plane", "manifests.json"),
+    sessionsFile: path.join(dataRoot, "control-plane", "sessions.json"),
+    scoringsDir: path.join(dataRoot, "control-plane", "scorings"),
+    reviewDecisionsDir: path.join(dataRoot, "control-plane", "review-decisions"),
+    ingestionSessionsDir: path.join(dataRoot, "ingestion", "sessions"),
+    fixturePath
+  };
+
+  const controlPlaneApp = await buildControlPlaneApp(runtime);
+  t.after(async () => {
+    await controlPlaneApp.close();
+  });
+
+  const replayResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: "/api/demo/replay-fixture",
+    payload: {}
+  });
+
+  assert.equal(replayResponse.statusCode, 200);
+  const replayPayload = replayResponse.json() as {
+    session: { id: string; status: string };
+    scoring: { integrity: { flags: string[] } };
+  };
+  assert.equal(replayPayload.session.status, "scored");
+  assert.ok(
+    !replayPayload.scoring.integrity.flags.includes("sequence_gap_detected"),
+    `Expected no sequence_gap_detected in flags, got: ${JSON.stringify(replayPayload.scoring.integrity.flags)}`
+  );
+
+  // Verify the ingested events retain the original contiguous sequence numbers.
+  const eventsResponse = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${replayPayload.session.id}/events`
+  });
+  assert.equal(eventsResponse.statusCode, 200);
+  const eventsPayload = eventsResponse.json() as { events: Array<{ sequence_no: number; source: string }> };
+  const desktopSeqNos = eventsPayload.events
+    .filter((e) => e.source === "desktop")
+    .map((e) => e.sequence_no)
+    .sort((a, b) => a - b);
+  assert.deepEqual(desktopSeqNos, [1, 2], "Contiguous sequence numbers must be preserved in ingested events");
 });

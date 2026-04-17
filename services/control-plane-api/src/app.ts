@@ -403,7 +403,13 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function resequenceEvents(events: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+export function resequenceEvents(
+  events: Array<Record<string, unknown>>,
+  options?: { preserve_sequence_numbers?: boolean }
+): Array<Record<string, unknown>> {
+  if (options?.preserve_sequence_numbers) {
+    return events.map((event) => ({ ...event }));
+  }
   const sequenceBySource = new Map<string, number>();
   return events.map((event) => {
     const source = String(event.source ?? "system");
@@ -678,7 +684,8 @@ export async function buildControlPlaneApp(
       fixture.events.map((event) => ({
         ...event,
         session_id: session.id
-      }))
+      })),
+      { preserve_sequence_numbers: true }
     );
 
     const ingestResponse = await fetch(`${runtime.ingestionUrl}/api/events`, {
