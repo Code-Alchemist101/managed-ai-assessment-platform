@@ -82,7 +82,7 @@ export const IntegrityResultSchema = z.object({
   notes: z.array(z.string())
 });
 
-export const SessionStatusSchema = z.enum(["created", "active", "submitted", "scored", "invalid"]);
+export const SessionStatusSchema = z.enum(["created", "active", "submitted", "scored", "invalid", "failed"]);
 
 export const SessionSummarySchema = z.object({
   id: z.string(),
@@ -91,7 +91,8 @@ export const SessionSummarySchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   status: SessionStatusSchema,
-  has_scoring: z.boolean().default(false)
+  has_scoring: z.boolean().default(false),
+  scoring_error: z.string().nullable().optional()
 });
 
 export const SessionEventCountsSchema = z.record(z.string(), z.number().int().nonnegative());

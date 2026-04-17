@@ -24,7 +24,8 @@ test("admin inventory rows preserve mixed session states and reviewer links", ()
         policy_recommendation: "human-review",
         invalidation_reasons: [],
         haci_score: 44.5,
-        predicted_archetype: "Independent Solver"
+        predicted_archetype: "Independent Solver",
+        scoring_error: null
       },
       {
         id: "session-invalid",
@@ -45,7 +46,8 @@ test("admin inventory rows preserve mixed session states and reviewer links", ()
         policy_recommendation: "invalid-session",
         invalidation_reasons: ["missing_required_streams"],
         haci_score: 11,
-        predicted_archetype: "Blind Copier"
+        predicted_archetype: "Blind Copier",
+        scoring_error: "Analytics service returned HTTP 500"
       }
     ],
     "http://127.0.0.1:4173"
@@ -53,7 +55,9 @@ test("admin inventory rows preserve mixed session states and reviewer links", ()
 
   assert.equal(rows.length, 2);
   assert.equal(rows[0].integrityVerdict, "clean");
+  assert.equal(rows[0].statusLabel, "scored");
   assert.equal(rows[1].status, "invalid");
+  assert.equal(rows[1].scoringError, "Analytics service returned HTTP 500");
   assert.equal(rows[1].missingStreams, "ide");
   assert.equal(rows[1].reviewerUrl, "http://127.0.0.1:4173?sessionId=session-invalid");
 });

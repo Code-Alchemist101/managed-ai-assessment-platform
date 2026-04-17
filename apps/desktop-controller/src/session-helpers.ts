@@ -11,7 +11,8 @@ export type DesktopReadinessState =
   | "ready_to_score"
   | "submitted"
   | "scored"
-  | "invalid";
+  | "invalid"
+  | "failed";
 
 export type BrowserCaptureState =
   | "not_required"
@@ -178,6 +179,14 @@ export function deriveDesktopReadiness(
     return {
       state: "submitted",
       reason: "The session has been submitted for scoring.",
+      canScore: false
+    };
+  }
+
+  if (sessionDetail?.status === "failed") {
+    return {
+      state: "failed",
+      reason: "Scoring failed. The analytics service was unavailable after all retry attempts.",
       canScore: false
     };
   }

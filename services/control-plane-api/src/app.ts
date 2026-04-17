@@ -393,7 +393,15 @@ function isScoreSessionError(result: ScoreSessionResult): result is ScoreSession
   return "error" in result;
 }
 
-async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Promise<ScoreSessionResult> {
+const ANALYTICS_MAX_ATTEMPTS = 3;
+const ANALYTICS_BASE_DELAY_MS = 500;
+const defaultRetryDelay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function scoreSession(
+  runtime: ControlPlaneRuntime,
+  sessionId: string,
+  retryDelay: (ms: number) => Promise<void> = defaultRetryDelay
+): Promise<ScoreSessionResult> {
   const sessions = await loadSessions(runtime);
   const session = sessions.find((item) => item.id === sessionId);
   if (!session) {
@@ -413,31 +421,57 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
     return { error: { statusCode: 404, body: { error: "No ingested events found for session." } } };
   }
 
-  const analyticsResponse = await fetch(`${runtime.analyticsUrl}/score-session`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
+  const requestBody = JSON.stringify({
+    session_context: {
+      session_id: session.id,
+      problem_statement: manifest.task_prompt,
+      allowed_ai_providers: manifest.allowed_ai_providers,
+      allowed_sites: manifest.allowed_sites,
+      required_streams: manifest.required_streams,
+      decision_policy: manifest.decision_policy
     },
-    body: JSON.stringify({
-      session_context: {
-        session_id: session.id,
-        problem_statement: manifest.task_prompt,
-        allowed_ai_providers: manifest.allowed_ai_providers,
-        allowed_sites: manifest.allowed_sites,
-        required_streams: manifest.required_streams,
-        decision_policy: manifest.decision_policy
-      },
-      events
-    })
+    events
   });
 
-  if (!analyticsResponse.ok) {
+  let analyticsResponse: Response | undefined;
+  let lastErrorDetail: string | undefined;
+
+  for (let attempt = 0; attempt < ANALYTICS_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await retryDelay(ANALYTICS_BASE_DELAY_MS * Math.pow(2, attempt - 1));
+    }
+    try {
+      const response = await fetch(`${runtime.analyticsUrl}/score-session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: requestBody
+      });
+      if (response.ok) {
+        analyticsResponse = response;
+        break;
+      }
+      if (response.status < 500 || response.status >= 600) {
+        analyticsResponse = response;
+        break;
+      }
+      lastErrorDetail = `Analytics service returned HTTP ${response.status} on attempt ${attempt + 1}: ${await response.text()}`;
+    } catch (err) {
+      lastErrorDetail = `Analytics service unreachable on attempt ${attempt + 1}: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+
+  if (!analyticsResponse || !analyticsResponse.ok) {
+    const scoringError = lastErrorDetail ?? "Analytics service failed.";
+    session.status = "failed";
+    session.updated_at = new Date().toISOString();
+    session.scoring_error = scoringError;
+    await saveSessions(runtime, sessions);
     return {
       error: {
         statusCode: 502,
         body: {
           error: "Analytics service failed.",
-          detail: await analyticsResponse.text()
+          detail: scoringError
         }
       }
     };
@@ -447,6 +481,7 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
   session.updated_at = new Date().toISOString();
   session.has_scoring = true;
   session.status = scoring.integrity.verdict === "invalid" ? "invalid" : "scored";
+  session.scoring_error = null;
   await saveSessions(runtime, sessions);
   await persistScoring(runtime, sessionId, scoring);
   return {
@@ -456,7 +491,8 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
 }
 
 export async function buildControlPlaneApp(
-  runtime: ControlPlaneRuntime = resolveControlPlaneRuntime()
+  runtime: ControlPlaneRuntime = resolveControlPlaneRuntime(),
+  options?: { retryDelay?: (ms: number) => Promise<void> }
 ): Promise<FastifyInstance> {
   await ensureStorage(runtime);
   const app = Fastify({ logger: true });
@@ -553,7 +589,7 @@ export async function buildControlPlaneApp(
 
   app.post("/api/sessions/:sessionId/score", async (request, reply) => {
     const sessionId = (request.params as { sessionId: string }).sessionId;
-    const result = await scoreSession(runtime, sessionId);
+    const result = await scoreSession(runtime, sessionId, options?.retryDelay);
     if (isScoreSessionError(result)) {
       return reply.status(result.error.statusCode).send(result.error.body);
     }
@@ -634,7 +670,7 @@ export async function buildControlPlaneApp(
     }
 
     await updateSessionStatus(runtime, session.id, "submitted");
-    const scored = await scoreSession(runtime, session.id);
+    const scored = await scoreSession(runtime, session.id, options?.retryDelay);
     if (isScoreSessionError(scored)) {
       return reply.status(scored.error.statusCode).send(scored.error.body);
     }
