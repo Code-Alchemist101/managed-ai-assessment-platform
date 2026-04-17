@@ -255,12 +255,30 @@ async function readScoring(runtime: ControlPlaneRuntime, sessionId: string): Pro
   return readJson(scoringFilePath(runtime, sessionId));
 }
 
-async function tryReadScoring(runtime: ControlPlaneRuntime, sessionId: string): Promise<SessionScoringPayload | null> {
+function isFileNotFoundError(err: unknown): boolean {
+  return err !== null && typeof err === "object" && "code" in err && (err as { code: string }).code === "ENOENT";
+}
+
+type ScoringReadResult =
+  | { kind: "ok"; value: SessionScoringPayload }
+  | { kind: "corrupted"; error: string }
+  | { kind: "not_found" };
+
+async function tryReadScoring(runtime: ControlPlaneRuntime, sessionId: string): Promise<ScoringReadResult> {
+  let raw: unknown;
   try {
-    return SessionScoringPayloadSchema.parse(await readScoring(runtime, sessionId));
-  } catch {
-    return null;
+    raw = await readScoring(runtime, sessionId);
+  } catch (err) {
+    if (isFileNotFoundError(err)) {
+      return { kind: "not_found" };
+    }
+    return { kind: "corrupted", error: err instanceof Error ? err.message : String(err) };
   }
+  const result = SessionScoringPayloadSchema.safeParse(raw);
+  if (result.success) {
+    return { kind: "ok", value: result.data };
+  }
+  return { kind: "corrupted", error: result.error.message };
 }
 
 async function persistReviewDecision(runtime: ControlPlaneRuntime, decision: ReviewerDecision): Promise<void> {
@@ -306,15 +324,24 @@ async function buildSessionDetail(
 ): Promise<SessionDetail> {
   const manifest = manifests.find((item) => item.id === session.manifest_id);
   const events = await readSessionEvents(runtime, session.id).catch(() => []);
-  const scoring = await tryReadScoring(runtime, session.id);
+  const scoringResult = await tryReadScoring(runtime, session.id);
+  const scoring = scoringResult.kind === "ok" ? scoringResult.value : null;
   const eventCountsBySource = buildEventCountsBySource(events);
   const presentStreams = buildPresentStreams(eventCountsBySource);
   const missingStreams = scoring?.integrity.missing_streams ?? buildMissingStreams(manifest?.required_streams ?? [], presentStreams);
   const firstEventAt = events[0]?.timestamp_utc;
   const lastEventAt = events.at(-1)?.timestamp_utc;
 
+  const scoringOverrides =
+    scoringResult.kind === "corrupted"
+      ? { has_scoring: true, scoring_status: "corrupted" as const, scoring_error: scoringResult.error }
+      : scoringResult.kind === "ok"
+        ? { scoring_status: "ok" as const }
+        : { scoring_status: "pending" as const };
+
   return SessionDetailSchema.parse({
     ...session,
+    ...scoringOverrides,
     manifest_name: manifest?.name ?? session.manifest_id,
     required_streams: manifest?.required_streams ?? [],
     present_streams: presentStreams,

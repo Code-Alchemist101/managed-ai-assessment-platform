@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import http from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { buildIngestionApp } from "../../services/ingestion-api/src/app";
@@ -590,4 +590,101 @@ test("scoreSession succeeds and clears scoring_error when analytics recovers aft
   const scored = scoreResponse.json() as { session: { status: string; scoring_error?: string | null } };
   assert.equal(scored.session.status, "scored", "Session should be scored after recovery");
   assert.equal(scored.session.scoring_error, null, "scoring_error should be null after successful scoring");
+});
+
+test("corrupted scoring file yields scoring_status=corrupted and has_scoring=true in session detail", async (t) => {
+  const { controlPlaneApp, runtime } = await setupControlPlaneWithCustomAnalytics(
+    t,
+    "http://127.0.0.1:1" // unused — no scoring call is made in this test
+  );
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-corrupted");
+
+  // Write a corrupted (invalid JSON) scoring file for the session
+  const corruptedFilePath = path.join(runtime.scoringsDir, `${session.id}.json`);
+  await writeFile(corruptedFilePath, "{ this is not valid json !!!!", "utf8");
+
+  const detailResponse = await controlPlaneApp.inject({ method: "GET", url: `/api/sessions/${session.id}` });
+  assert.equal(detailResponse.statusCode, 200);
+  const detail = detailResponse.json() as {
+    has_scoring: boolean;
+    scoring_status?: string;
+    scoring_error?: string | null;
+  };
+
+  assert.equal(detail.has_scoring, true, "has_scoring should be true when scoring file exists but is corrupted");
+  assert.equal(detail.scoring_status, "corrupted", "scoring_status should be 'corrupted' for an unreadable scoring file");
+  assert.ok(detail.scoring_error, "scoring_error should be populated with a parse error message");
+});
+
+test("valid scoring file yields scoring_status=ok in session detail", async (t) => {
+  const { controlPlaneApp, runtime } = await setupControlPlaneWithCustomAnalytics(
+    t,
+    "http://127.0.0.1:1" // unused — scoring is written manually below
+  );
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-valid-scoring");
+
+  // Write a valid scoring file directly
+  const validScoring = {
+    session_id: session.id,
+    model_version: "heuristic-v1",
+    scoring_mode: "heuristic",
+    haci_score: 65,
+    haci_band: "medium",
+    predicted_archetype: "Independent Solver",
+    archetype_probabilities: { "Independent Solver": 0.75, "Blind Copier": 0.25 },
+    confidence: 0.75,
+    top_features: [],
+    integrity: {
+      verdict: "clean",
+      flags: [],
+      required_streams_present: ["desktop", "ide"],
+      missing_streams: [],
+      notes: []
+    },
+    policy_recommendation: "human-review",
+    review_required: true,
+    trained_model_result: null,
+    feature_vector: {
+      session_id: session.id,
+      extraction_version: "1.0",
+      generated_at: new Date().toISOString(),
+      signal_values: {},
+      signals: [],
+      completeness: "partial",
+      invalidation_reasons: []
+    }
+  };
+  const validFilePath = path.join(runtime.scoringsDir, `${session.id}.json`);
+  await writeFile(validFilePath, JSON.stringify(validScoring), "utf8");
+
+  const detailResponse = await controlPlaneApp.inject({ method: "GET", url: `/api/sessions/${session.id}` });
+  assert.equal(detailResponse.statusCode, 200);
+  const detail = detailResponse.json() as {
+    scoring_status?: string;
+    scoring_error?: string | null;
+    haci_score?: number | null;
+    predicted_archetype?: string | null;
+  };
+
+  assert.equal(detail.scoring_status, "ok", "scoring_status should be 'ok' for a valid scoring file");
+  assert.equal(detail.haci_score, 65, "haci_score should be populated from valid scoring file");
+  assert.equal(detail.predicted_archetype, "Independent Solver");
+});
+
+test("session with no scoring file returns scoring_status=pending", async (t) => {
+  const { controlPlaneApp } = await setupControlPlaneWithCustomAnalytics(
+    t,
+    "http://127.0.0.1:1" // unused — no scoring call is made in this test
+  );
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-pending");
+
+  const detailResponse = await controlPlaneApp.inject({ method: "GET", url: `/api/sessions/${session.id}` });
+  assert.equal(detailResponse.statusCode, 200);
+  const detail = detailResponse.json() as { scoring_status?: string; has_scoring: boolean };
+
+  assert.equal(detail.scoring_status, "pending");
+  assert.equal(detail.has_scoring, false);
 });
