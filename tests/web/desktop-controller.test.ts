@@ -263,3 +263,17 @@ test("vscode sequence manager keeps independent monotonic counters per session",
   assert.equal(await manager.next("session-b"), 11);
   assert.equal(await manager.next("session-a"), 7);
 });
+
+test("desktop controller readiness returns failed state for sessions with failed scoring", () => {
+  const result = deriveDesktopReadiness({
+    status: "failed",
+    required_streams: ["desktop", "ide"],
+    event_counts_by_source: { desktop: 3, ide: 5 },
+    missing_streams: [],
+    integrity_verdict: null
+  });
+
+  assert.equal(result.state, "failed");
+  assert.equal(result.canScore, false);
+  assert.match(result.reason, /failed/i);
+});
