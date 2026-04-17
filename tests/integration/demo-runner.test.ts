@@ -342,10 +342,10 @@ test("demo replay with gap fixture produces sequence_gap_detected integrity flag
 
   assert.equal(replayResponse.statusCode, 200);
   const replayPayload = replayResponse.json() as {
-    session: { id: string; status: string };
+    session: { id: string; status: string; has_scoring: boolean };
     scoring: { integrity: { flags: string[] } };
   };
-  assert.equal(replayPayload.session.status, "scored");
+  assert.ok(replayPayload.session.has_scoring, "Session should have scoring data");
   assert.ok(
     replayPayload.scoring.integrity.flags.includes("sequence_gap_detected"),
     `Expected sequence_gap_detected in flags, got: ${JSON.stringify(replayPayload.scoring.integrity.flags)}`
@@ -431,10 +431,10 @@ test("demo replay with no-gap fixture does not produce sequence_gap_detected int
 
   assert.equal(replayResponse.statusCode, 200);
   const replayPayload = replayResponse.json() as {
-    session: { id: string; status: string };
+    session: { id: string; status: string; has_scoring: boolean };
     scoring: { integrity: { flags: string[] } };
   };
-  assert.equal(replayPayload.session.status, "scored");
+  assert.ok(replayPayload.session.has_scoring, "Session should have scoring data");
   assert.ok(
     !replayPayload.scoring.integrity.flags.includes("sequence_gap_detected"),
     `Expected no sequence_gap_detected in flags, got: ${JSON.stringify(replayPayload.scoring.integrity.flags)}`
