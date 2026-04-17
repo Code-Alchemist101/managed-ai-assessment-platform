@@ -57,14 +57,13 @@ export async function loadSessionEvents(sessionId: string): Promise<SessionEvent
 }
 
 export async function loadDecision(sessionId: string): Promise<ReviewerDecision | null> {
-  try {
-    return await fetchJson<ReviewerDecision>(`${controlPlaneUrl}/api/sessions/${sessionId}/decision`);
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return null;
-    }
-    throw error;
+  const raw = await fetchJson<ReviewerDecision | { decision: null; exists: true }>(
+    `${controlPlaneUrl}/api/sessions/${sessionId}/decision`
+  );
+  if ("exists" in raw) {
+    return null;
   }
+  return raw;
 }
 
 export async function saveDecision(sessionId: string, decision: ReviewerDecisionValue, note?: string): Promise<ReviewerDecision> {

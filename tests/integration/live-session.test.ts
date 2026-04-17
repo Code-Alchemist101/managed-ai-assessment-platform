@@ -688,3 +688,56 @@ test("session with no scoring file returns scoring_status=pending", async (t) =>
   assert.equal(detail.scoring_status, "pending");
   assert.equal(detail.has_scoring, false);
 });
+
+test("GET /decision returns 404 for unknown session", async (t) => {
+  const { controlPlaneApp } = await setupControlPlaneWithCustomAnalytics(t, "http://127.0.0.1:1");
+
+  const response = await controlPlaneApp.inject({
+    method: "GET",
+    url: "/api/sessions/nonexistent-session-id/decision"
+  });
+
+  assert.equal(response.statusCode, 404);
+  const body = response.json() as { error: string };
+  assert.ok(body.error, "error message should be present");
+});
+
+test("GET /decision returns 200 with null decision for existing session with no decision", async (t) => {
+  const { controlPlaneApp } = await setupControlPlaneWithCustomAnalytics(t, "http://127.0.0.1:1");
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-no-decision");
+
+  const response = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${session.id}/decision`
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = response.json() as { decision: unknown; exists: boolean };
+  assert.equal(body.decision, null, "decision should be null when no decision has been recorded");
+  assert.equal(body.exists, true, "exists should be true for a known session");
+});
+
+test("GET /decision returns the saved decision for a session with an existing decision", async (t) => {
+  const { controlPlaneApp } = await setupControlPlaneWithCustomAnalytics(t, "http://127.0.0.1:1");
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-with-decision");
+
+  const postResponse = await controlPlaneApp.inject({
+    method: "POST",
+    url: `/api/sessions/${session.id}/decision`,
+    payload: { decision: "approve", note: "Looks good" }
+  });
+  assert.equal(postResponse.statusCode, 200);
+
+  const getResponse = await controlPlaneApp.inject({
+    method: "GET",
+    url: `/api/sessions/${session.id}/decision`
+  });
+  assert.equal(getResponse.statusCode, 200);
+  const body = getResponse.json() as { session_id: string; decision: string; note?: string; decided_at: string };
+  assert.equal(body.session_id, session.id);
+  assert.equal(body.decision, "approve");
+  assert.equal(body.note, "Looks good");
+  assert.ok(body.decided_at, "decided_at should be set");
+});
