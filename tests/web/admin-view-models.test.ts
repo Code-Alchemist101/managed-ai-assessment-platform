@@ -61,3 +61,39 @@ test("admin inventory rows preserve mixed session states and reviewer links", ()
   assert.equal(rows[1].missingStreams, "ide");
   assert.equal(rows[1].reviewerUrl, "http://127.0.0.1:4173?sessionId=session-invalid");
 });
+
+test("admin inventory row shows corrupted status label when scoring_status is corrupted", () => {
+  const rows = buildRecentSessionRows(
+    [
+      {
+        id: "session-corrupted",
+        manifest_id: "manifest-python-cli-live-desktop-ide",
+        manifest_name: "Desktop + IDE Live",
+        candidate_id: "candidate-x",
+        created_at: "2026-04-12T10:00:00Z",
+        updated_at: "2026-04-12T10:01:00Z",
+        status: "scored",
+        has_scoring: true,
+        scoring_status: "corrupted",
+        scoring_error: "SyntaxError: Unexpected token < at position 0",
+        required_streams: ["desktop", "ide"],
+        present_streams: ["desktop", "ide"],
+        event_counts_by_source: { desktop: 3, ide: 4 },
+        first_event_at: "2026-04-12T10:00:01Z",
+        last_event_at: "2026-04-12T10:00:45Z",
+        integrity_verdict: null,
+        missing_streams: [],
+        policy_recommendation: null,
+        invalidation_reasons: [],
+        haci_score: null,
+        predicted_archetype: null
+      }
+    ],
+    "http://127.0.0.1:4173"
+  );
+
+  assert.equal(rows.length, 1);
+  assert.ok(rows[0].statusLabel.includes("corrupted"), `Expected statusLabel to contain 'corrupted', got: ${rows[0].statusLabel}`);
+  assert.equal(rows[0].scoringError, "SyntaxError: Unexpected token < at position 0");
+  assert.equal(rows[0].hasScoring, "yes");
+});

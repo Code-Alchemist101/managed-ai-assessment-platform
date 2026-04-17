@@ -170,6 +170,10 @@ export function App() {
     selectedSession?.status === "failed"
       ? selectedSession.scoring_error ?? "Scoring failed after retry attempts. Check analytics connectivity and retry."
       : null;
+  const scoringCorruptedDetail =
+    selectedSession?.scoring_status === "corrupted"
+      ? selectedSession.scoring_error ?? "Scoring file exists but could not be parsed. The file may be corrupted."
+      : null;
 
   const handleDecision = async (value: ReviewerDecisionValue) => {
     if (!selectedSessionId || decisionSubmitting) {
@@ -236,6 +240,10 @@ export function App() {
           <StatusCard title="Scoring Failed" body={scoringFailureDetail} />
         ) : null}
 
+        {!loading && !error && selectedSession && !sessionLoading && scoringCorruptedDetail ? (
+          <StatusCard title="Scoring Corrupted" body={`Scoring file exists but could not be read: ${scoringCorruptedDetail}`} />
+        ) : null}
+
         {!loading && !error && selectedSession && !sessionLoading ? (
           <>
             <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
@@ -251,7 +259,9 @@ export function App() {
               </div>
               <div style={cardStyle}>
                 <h2>Predicted Archetype</h2>
-                <p style={{ fontSize: 28, margin: "8px 0" }}>{scoring?.predicted_archetype ?? "Not scored yet"}</p>
+                <p style={{ fontSize: 28, margin: "8px 0" }}>
+                  {scoring?.predicted_archetype ?? (selectedSession?.scoring_status === "corrupted" ? "Corrupted" : "Not scored yet")}
+                </p>
                 {scoring ? (
                   <p style={{ margin: 0 }}>{confidenceLabel(scoring.scoring_mode)}: {(scoring.confidence * 100).toFixed(1)}%</p>
                 ) : (

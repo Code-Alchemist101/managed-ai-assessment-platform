@@ -84,6 +84,8 @@ export const IntegrityResultSchema = z.object({
 
 export const SessionStatusSchema = z.enum(["created", "active", "submitted", "scored", "invalid", "failed"]);
 
+export const ScoringStatusSchema = z.enum(["pending", "ok", "corrupted"]);
+
 export const SessionSummarySchema = z.object({
   id: z.string(),
   manifest_id: z.string(),
@@ -92,6 +94,7 @@ export const SessionSummarySchema = z.object({
   updated_at: z.string().datetime(),
   status: SessionStatusSchema,
   has_scoring: z.boolean().default(false),
+  scoring_status: ScoringStatusSchema.optional(),
   scoring_error: z.string().nullable().optional()
 });
 
@@ -208,6 +211,7 @@ export type FeatureSignal = z.infer<typeof FeatureSignalSchema>;
 export type FeatureVector = z.infer<typeof FeatureVectorSchema>;
 export type IntegrityResult = z.infer<typeof IntegrityResultSchema>;
 export type ScoringResult = z.infer<typeof ScoringResultSchema>;
+export type ScoringStatus = z.infer<typeof ScoringStatusSchema>;
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type SessionScoringPayload = z.infer<typeof SessionScoringPayloadSchema>;
