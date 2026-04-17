@@ -631,7 +631,7 @@ export async function buildControlPlaneApp(
     }
     const decision = await tryReadReviewDecision(runtime, sessionId);
     if (!decision) {
-      return reply.status(404).send({ error: "No reviewer decision recorded for this session." });
+      return { decision: null, exists: true };
     }
     return decision;
   });
