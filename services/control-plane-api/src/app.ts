@@ -395,8 +395,13 @@ function isScoreSessionError(result: ScoreSessionResult): result is ScoreSession
 
 const ANALYTICS_MAX_ATTEMPTS = 3;
 const ANALYTICS_BASE_DELAY_MS = 500;
+const defaultRetryDelay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Promise<ScoreSessionResult> {
+async function scoreSession(
+  runtime: ControlPlaneRuntime,
+  sessionId: string,
+  retryDelay: (ms: number) => Promise<void> = defaultRetryDelay
+): Promise<ScoreSessionResult> {
   const sessions = await loadSessions(runtime);
   const session = sessions.find((item) => item.id === sessionId);
   if (!session) {
@@ -433,7 +438,7 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
 
   for (let attempt = 0; attempt < ANALYTICS_MAX_ATTEMPTS; attempt++) {
     if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, ANALYTICS_BASE_DELAY_MS * Math.pow(2, attempt - 1)));
+      await retryDelay(ANALYTICS_BASE_DELAY_MS * Math.pow(2, attempt - 1));
     }
     try {
       const response = await fetch(`${runtime.analyticsUrl}/score-session`, {
@@ -486,7 +491,8 @@ async function scoreSession(runtime: ControlPlaneRuntime, sessionId: string): Pr
 }
 
 export async function buildControlPlaneApp(
-  runtime: ControlPlaneRuntime = resolveControlPlaneRuntime()
+  runtime: ControlPlaneRuntime = resolveControlPlaneRuntime(),
+  options?: { retryDelay?: (ms: number) => Promise<void> }
 ): Promise<FastifyInstance> {
   await ensureStorage(runtime);
   const app = Fastify({ logger: true });
@@ -583,7 +589,7 @@ export async function buildControlPlaneApp(
 
   app.post("/api/sessions/:sessionId/score", async (request, reply) => {
     const sessionId = (request.params as { sessionId: string }).sessionId;
-    const result = await scoreSession(runtime, sessionId);
+    const result = await scoreSession(runtime, sessionId, options?.retryDelay);
     if (isScoreSessionError(result)) {
       return reply.status(result.error.statusCode).send(result.error.body);
     }
@@ -664,7 +670,7 @@ export async function buildControlPlaneApp(
     }
 
     await updateSessionStatus(runtime, session.id, "submitted");
-    const scored = await scoreSession(runtime, session.id);
+    const scored = await scoreSession(runtime, session.id, options?.retryDelay);
     if (isScoreSessionError(scored)) {
       return reply.status(scored.error.statusCode).send(scored.error.body);
     }

@@ -145,7 +145,8 @@ async function setupLocalApps(t: test.TestContext) {
 
 async function setupControlPlaneWithCustomAnalytics(
   t: test.TestContext,
-  analyticsUrl: string
+  analyticsUrl: string,
+  options?: { retryDelay?: (ms: number) => Promise<void> }
 ): Promise<{ controlPlaneApp: Awaited<ReturnType<typeof buildControlPlaneApp>>; runtime: ControlPlaneRuntime }> {
   const repoRoot = path.resolve(process.cwd());
   const dataRoot = await mkdtemp(path.join(os.tmpdir(), "assessment-platform-failure-"));
@@ -184,7 +185,7 @@ async function setupControlPlaneWithCustomAnalytics(
     fixturePath: path.join(repoRoot, "fixtures", "sample-session.json")
   };
 
-  const controlPlaneApp = await buildControlPlaneApp(runtime);
+  const controlPlaneApp = await buildControlPlaneApp(runtime, options);
   t.after(async () => {
     await controlPlaneApp.close();
   });
