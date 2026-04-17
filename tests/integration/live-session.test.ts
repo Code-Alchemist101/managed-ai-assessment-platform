@@ -672,3 +672,19 @@ test("valid scoring file yields scoring_status=ok in session detail", async (t) 
   assert.equal(detail.haci_score, 65, "haci_score should be populated from valid scoring file");
   assert.equal(detail.predicted_archetype, "Independent Solver");
 });
+
+test("session with no scoring file returns scoring_status=pending", async (t) => {
+  const { controlPlaneApp } = await setupControlPlaneWithCustomAnalytics(
+    t,
+    "http://127.0.0.1:1" // unused — no scoring call is made in this test
+  );
+
+  const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-pending");
+
+  const detailResponse = await controlPlaneApp.inject({ method: "GET", url: `/api/sessions/${session.id}` });
+  assert.equal(detailResponse.statusCode, 200);
+  const detail = detailResponse.json() as { scoring_status?: string; has_scoring: boolean };
+
+  assert.equal(detail.scoring_status, "pending");
+  assert.equal(detail.has_scoring, false);
+});

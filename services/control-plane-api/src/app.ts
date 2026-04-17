@@ -337,7 +337,7 @@ async function buildSessionDetail(
       ? { has_scoring: true, scoring_status: "corrupted" as const, scoring_error: scoringResult.error }
       : scoringResult.kind === "ok"
         ? { scoring_status: "ok" as const }
-        : {};
+        : { scoring_status: "pending" as const };
 
   return SessionDetailSchema.parse({
     ...session,
