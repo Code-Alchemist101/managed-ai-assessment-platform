@@ -508,7 +508,7 @@ test("scoreSession marks session as failed when analytics is unreachable", async
 test("scoreSession succeeds and clears scoring_error when analytics recovers after initial failure", async (t) => {
   let requestCount = 0;
 
-  const mockAnalyticsServer = http.createServer(async (req, res) => {
+  const mockAnalyticsServer = http.createServer((req, res) => {
     requestCount++;
     if (requestCount < 3) {
       res.writeHead(500, { "content-type": "application/json" });
