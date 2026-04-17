@@ -31,6 +31,7 @@
     "test": "npm run test:analytics",
     "test:analytics": "python -m unittest discover -s services/analytics-py/tests -p test_*.py",
     "test:integration": "npm run build --workspace @assessment-platform/contracts && tsx --test tests/integration/demo-runner.test.ts tests/integration/live-session.test.ts",
+    "test:unit": "npm run build --workspace @assessment-platform/contracts && tsx --test tests/unit/control-plane.test.ts",
     "test:web": "npm run build --workspace @assessment-platform/contracts && tsx --test tests/web/view-models.test.ts tests/web/desktop-controller.test.ts tests/web/admin-view-models.test.ts tests/web/edge-managed.test.ts"
   },
   "devDependencies": {
