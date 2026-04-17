@@ -439,7 +439,8 @@ test("scoreSession marks session as failed and records scoring_error when analyt
   const mockPort = (mockAnalyticsServer.address() as AddressInfo).port;
   const { controlPlaneApp, runtime } = await setupControlPlaneWithCustomAnalytics(
     t,
-    `http://127.0.0.1:${mockPort}`
+    `http://127.0.0.1:${mockPort}`,
+    { retryDelay: () => Promise.resolve() }
   );
 
   const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-retry");
@@ -478,7 +479,8 @@ test("scoreSession marks session as failed when analytics is unreachable", async
 
   const { controlPlaneApp, runtime } = await setupControlPlaneWithCustomAnalytics(
     t,
-    `http://127.0.0.1:${closedPort}`
+    `http://127.0.0.1:${closedPort}`,
+    { retryDelay: () => Promise.resolve() }
   );
 
   const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-unreachable");
@@ -564,7 +566,8 @@ test("scoreSession succeeds and clears scoring_error when analytics recovers aft
   const mockPort = (mockAnalyticsServer.address() as AddressInfo).port;
   const { controlPlaneApp, runtime } = await setupControlPlaneWithCustomAnalytics(
     t,
-    `http://127.0.0.1:${mockPort}`
+    `http://127.0.0.1:${mockPort}`,
+    { retryDelay: () => Promise.resolve() }
   );
 
   const session = await createSession(controlPlaneApp, "manifest-python-cli-live-desktop-ide", "candidate-recover");

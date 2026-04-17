@@ -166,6 +166,10 @@ export function App() {
 
   const integrityVerdict = scoring?.integrity.verdict ?? selectedSession?.integrity_verdict ?? "pending";
   const policyRecommendation = scoring?.policy_recommendation ?? selectedSession?.policy_recommendation ?? "pending";
+  const scoringFailureDetail =
+    selectedSession?.status === "failed"
+      ? selectedSession.scoring_error ?? "Scoring failed after retry attempts. Check analytics connectivity and retry."
+      : null;
 
   const handleDecision = async (value: ReviewerDecisionValue) => {
     if (!selectedSessionId || decisionSubmitting) {
@@ -226,6 +230,10 @@ export function App() {
               </select>
             </label>
           </section>
+        ) : null}
+
+        {!loading && !error && selectedSession && !sessionLoading && scoringFailureDetail ? (
+          <StatusCard title="Scoring Failed" body={scoringFailureDetail} />
         ) : null}
 
         {!loading && !error && selectedSession && !sessionLoading ? (
@@ -440,7 +448,8 @@ export function App() {
                 <p style={{ margin: "0 0 8px" }}>Candidate: {selectedSession.candidate_id}</p>
                 <p style={{ margin: "0 0 8px" }}>Status: {selectedSession.status}</p>
                 <p style={{ margin: "0 0 8px" }}>First Event: {selectedSession.first_event_at ?? "None"}</p>
-                <p style={{ margin: 0 }}>Last Event: {selectedSession.last_event_at ?? "None"}</p>
+                <p style={{ margin: "0 0 8px" }}>Last Event: {selectedSession.last_event_at ?? "None"}</p>
+                <p style={{ margin: 0 }}>Scoring Error: {selectedSession.scoring_error ?? "None"}</p>
               </div>
               <div style={cardStyle}>
                 <h2>Runtime</h2>

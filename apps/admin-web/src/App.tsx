@@ -134,6 +134,7 @@ export function App() {
                         <HeaderCell label="Session ID" />
                         <HeaderCell label="Manifest" />
                         <HeaderCell label="Status" />
+                        <HeaderCell label="Scoring Error" />
                         <HeaderCell label="Has Scoring" />
                         <HeaderCell label="Integrity Verdict" />
                         <HeaderCell label="Missing Streams" />
@@ -145,7 +146,8 @@ export function App() {
                         <tr key={row.id}>
                           <BodyCell value={row.id} />
                           <BodyCell value={row.manifestLabel} />
-                          <BodyCell value={row.status} />
+                          <BodyCell value={row.statusLabel} />
+                          <BodyCell value={row.scoringError} />
                           <BodyCell value={row.hasScoring} />
                           <BodyCell value={row.integrityVerdict} />
                           <BodyCell value={row.missingStreams} />
